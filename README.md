@@ -1,126 +1,177 @@
-# AI SEO Center
+<p align="center">
+  <img src="docs/assets/hero-banner.svg" alt="AI SEO Center hero banner" width="100%" />
+</p>
 
-AI SEO Center is an enterprise-style SEO operations platform built to automate technical SEO, AI-assisted strategy, backlink operations, client reporting, and multi-site growth workflows from one dashboard.
+<h1 align="center">AI SEO Center</h1>
 
-It is designed as a portfolio-grade product build that combines product UI, AI orchestration, automation pipelines, background jobs, reporting systems, and operations tooling in a single Next.js application.
+<p align="center">
+  <strong>An AI-powered SEO operations platform built to help teams run strategy, backlink outreach, reporting, and growth workflows from one place.</strong>
+</p>
 
-## Live Demo
+<p align="center">
+  <a href="https://seoagent-techgeekstudio.vercel.app">Live Demo</a>
+  ·
+  <a href="docs/ARCHITECTURE.md">Architecture</a>
+  ·
+  <a href="docs/SRS.md">SRS</a>
+  ·
+  <a href="docs/DEPLOYMENT.md">Deployment</a>
+</p>
 
-- App: [seoagent-techgeekstudio.vercel.app](https://seoagent-techgeekstudio.vercel.app)
+## Why I Built This
 
-## Highlights
+Most SEO tools are good at showing data, but not great at helping a team actually run the work.
 
-- Multi-provider AI router with failover across Claude, ChatGPT, Gemini, Grok, and Groq
-- AI SEO chat with smart routing and side-by-side compare mode
-- Autonomous backlink agent with qualification, outreach drafting, and campaign tracking
-- Per-website project memory for brand voice, backlink rules, competitors, and SEO goals
-- Client-ready SEO reporting with delivery workflows and recurring schedules
-- Ops center for queue health, incidents, provider telemetry, and runtime visibility
-- CMS publishing, Search Console context, and GA4-aware reporting hooks
+I wanted to build something closer to an internal growth operating system:
 
-## Product Areas
+- a place where AI can help think through strategy
+- a place where backlink operations can move like a real pipeline
+- a place where reports feel client-ready instead of exported spreadsheets
+- a place where automation, monitoring, and delivery all live together
 
-- `Dashboard`: command-center overview for SEO and AI operations
-- `AI Chat`: provider-aware SEO copilot with fallback and compare mode
-- `Projects`: multi-site memory and strategy configuration
-- `AI Agent`: backlink discovery, scoring, contact finding, drafting, and tracking
-- `Reports`: client reports, owner digests, send flows, and schedules
-- `Content`: publishing workflows and CMS integration points
-- `Ops Center`: incidents, queue monitoring, job visibility, and AI health
-- `AI Analytics`: provider latency, failover, usage, and reliability stats
+AI SEO Center is my attempt to bring those pieces together into one product.
+
+## Product Snapshots
+
+<p align="center">
+  <img src="docs/assets/screenshots/dashboard.png" alt="Dashboard overview" width="48%" />
+  <img src="docs/assets/screenshots/chat.png" alt="AI SEO chat workspace" width="48%" />
+</p>
+
+<p align="center">
+  <img src="docs/assets/screenshots/reports.png" alt="SEO reports workspace" width="48%" />
+  <img src="docs/assets/screenshots/agent.png" alt="Backlink agent command center" width="48%" />
+</p>
+
+## What the Product Does
+
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <h3>AI SEO Copilot</h3>
+      <p>Runs across Claude, ChatGPT, Gemini, Grok, and Groq with provider failover, compare mode, and project-aware prompts.</p>
+    </td>
+    <td width="33%" valign="top">
+      <h3>Backlink Operations</h3>
+      <p>Tracks discovery, qualification, outreach, responses, and live link wins in a workflow that feels much closer to a sales pipeline than a static spreadsheet.</p>
+    </td>
+    <td width="33%" valign="top">
+      <h3>Client Reporting</h3>
+      <p>Builds structured SEO reports, recurring schedules, and delivery flows so the reporting side of the work feels polished too.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top">
+      <h3>Project Memory</h3>
+      <p>Stores per-site brand voice, goals, backlink rules, competitor notes, and strategy context so AI responses stay grounded in the actual business.</p>
+    </td>
+    <td width="33%" valign="top">
+      <h3>Ops + Reliability</h3>
+      <p>Includes queue monitoring, provider health, incidents, scheduling, and worker flows so the product behaves like a system, not just a front-end demo.</p>
+    </td>
+    <td width="33%" valign="top">
+      <h3>Publishing + Integrations</h3>
+      <p>Supports CMS publishing paths and is structured to plug into Search Console, GA4, email delivery, and background job infrastructure.</p>
+    </td>
+  </tr>
+</table>
+
+## Case Study
+
+### The Problem
+
+SEO work often gets split across too many tools:
+
+- one place for audits
+- another for keyword thinking
+- a spreadsheet for backlink tracking
+- docs for reporting
+- Slack or email for follow-up
+
+That creates friction. Teams spend too much time managing the work instead of moving it forward.
+
+### The Goal
+
+Build a single command center that could help with:
+
+- AI-assisted decision making
+- backlink campaign execution
+- recurring reporting
+- project memory across multiple sites
+- operational visibility into queues, providers, and background jobs
+
+### What I Shipped
+
+- a modular Next.js product with authenticated dashboards and API routes
+- a multi-provider AI router with failover logic
+- a backlink agent with qualification and outreach workflow support
+- a reporting workspace with delivery and scheduling concepts
+- project memory so every site can keep its own strategy context
+- deployment tooling for Vercel and traditional server setups
+
+### Product Thinking Behind It
+
+I tried to make this feel like something a real agency or in-house growth team could grow into, not just something that looks good in screenshots.
+
+That meant focusing on:
+
+- clearer operational workflows
+- safer automation paths
+- human-readable error handling
+- deployment readiness
+- docs that explain the system like a product, not just a codebase
+
+### Why This Project Matters in My Portfolio
+
+This build shows the kind of work I enjoy most:
+
+- full-stack product development
+- AI feature integration
+- system design and reliability thinking
+- workflow-heavy SaaS UX
+- turning a messy real-world process into software people can actually use
 
 ## Tech Stack
 
-- `Next.js 16` App Router
+- `Next.js 16`
 - `React 19`
 - `TypeScript`
 - `Prisma`
 - `NextAuth`
 - `Tailwind CSS`
 - `SQLite` for local development
-- Postgres-ready Prisma workflow for production
+- Postgres-ready production workflow
 - `Resend` for email delivery
-- Google integrations for Search Console and GA4 context
+- multi-provider AI orchestration
 
-## Architecture Notes
-
-This project is structured as a modular application rather than a simple page-based demo:
+## Project Structure
 
 - `app/`: UI routes and API routes
 - `components/`: reusable interface building blocks
-- `lib/services/`: business logic and orchestration services
+- `hooks/`: client-side data and polling hooks
+- `lib/services/`: application services and orchestration
 - `lib/agent/`: backlink automation engine
-- `lib/prompts/`: AI prompt system and provider behavior layers
-- `lib/server/`: queue, auth, response, security, and observability helpers
+- `lib/prompts/`: AI behavior and prompt layers
+- `lib/server/`: auth, queue, security, and observability helpers
 - `prisma/`: schema, seed, and database workflow
-- `tests/`: unit and browser-level coverage
-- `deploy/`: production deployment scripts, PM2, systemd, and Nginx setup
+- `tests/`: unit and browser-level testing
+- `deploy/`: PM2, systemd, Nginx, and deployment scripts
 
-## Local Development
-
-1. Install dependencies
+## Running It Locally
 
 ```bash
 pnpm install
-```
-
-2. Create your local environment file
-
-```bash
 cp .env.local.example .env.local
-```
-
-3. Sync the database
-
-```bash
 pnpm exec prisma db push
 pnpm exec prisma generate
-```
-
-4. Start the app
-
-```bash
 pnpm dev
 ```
 
-5. Optional: run background jobs in a second terminal
+Optional worker process:
 
 ```bash
 pnpm jobs:drain
 ```
-
-## Production Workflow
-
-This repository includes deployment-ready assets for a production environment:
-
-- PM2 ecosystem config
-- systemd service files
-- Nginx reverse proxy config
-- worker daemon scripts
-- production deployment helper scripts
-
-See the deployment guide:
-
-- [Deployment Guide](docs/DEPLOYMENT.md)
-
-## Key Environment Variables
-
-- `DATABASE_URL`
-- `NEXTAUTH_SECRET`
-- `NEXTAUTH_URL`
-- `ANTHROPIC_API_KEY`
-- `OPENAI_API_KEY`
-- `GEMINI_API_KEY`
-- `XAI_API_KEY`
-- `GROQ_API_KEY`
-- `RESEND_API_KEY`
-- `RESEND_FROM_EMAIL`
-- `REPORTS_FROM_EMAIL`
-- `GOOGLE_SERVICE_ACCOUNT_JSON`
-- `RATE_LIMIT_PROVIDER`
-- `JOB_QUEUE_PROVIDER`
-- `UPSTASH_REDIS_REST_URL`
-- `UPSTASH_REDIS_REST_TOKEN`
 
 ## Quality Checks
 
@@ -142,15 +193,15 @@ pnpm build
 - [API Overview](docs/API.md)
 - [Deployment Guide](docs/DEPLOYMENT.md)
 
-## Engineering Review Artifacts
+## Engineering Review Pack
 
 - [Engineering Review (Markdown)](docs/reviews/seo-command-center-engineering-review-2026-04-09.md)
 - [Engineering Review (PDF)](docs/reviews/seo-command-center-engineering-review-2026-04-09.pdf)
 - [Engineering Review (DOCX)](docs/reviews/seo-command-center-engineering-review-2026-04-09.docx)
 - [Engineering Review (PPTX)](docs/reviews/seo-command-center-engineering-review-2026-04-09.pptx)
 
-## Notes
+## Final Note
 
-- The app supports local SQLite development and a Postgres-ready production workflow.
-- Some integrations require external credentials before live data becomes available.
-- Public demo deployments may use reduced background automation compared to a fully provisioned production environment.
+This project is still the kind of system I’d keep iterating on.
+
+There’s a lot more I’d love to add over time, especially deeper analytics integrations, more autonomous workflows, and richer client collaboration tools. But even in its current state, it represents a serious end-to-end product build with real engineering depth behind it.

@@ -1,0 +1,77 @@
+<svg width="1280" height="640" viewBox="0 0 1280 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="120" y1="40" x2="1160" y2="600" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B1220"/>
+      <stop offset="0.45" stop-color="#111C34"/>
+      <stop offset="1" stop-color="#09111E"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="230" y1="165" x2="880" y2="520" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1F8CFF"/>
+      <stop offset="1" stop-color="#6AE3FF"/>
+    </linearGradient>
+    <linearGradient id="accentSoft" x1="780" y1="120" x2="1170" y2="520" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#37A6FF" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#77F7FF" stop-opacity="0.18"/>
+    </linearGradient>
+    <filter id="glow" x="0" y="0" width="1280" height="640" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="60" result="blur"/>
+      <feBlend in="SourceGraphic" in2="blur" mode="screen"/>
+    </filter>
+    <filter id="shadow" x="730" y="90" width="490" height="410" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feOffset dy="20"/>
+      <feGaussianBlur stdDeviation="28"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.0196078 0 0 0 0 0.0901961 0 0 0 0 0.184314 0 0 0 0.35 0"/>
+      <feBlend in="SourceGraphic" mode="normal"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="640" rx="36" fill="url(#bg)"/>
+
+  <circle cx="1098" cy="136" r="126" fill="url(#accentSoft)" opacity="0.7" filter="url(#glow)"/>
+  <circle cx="920" cy="534" r="118" fill="#123B74" opacity="0.34" filter="url(#glow)"/>
+  <path d="M780 140C897 99 1045 106 1152 194" stroke="#1C72D8" stroke-opacity="0.35" stroke-width="2"/>
+  <path d="M760 194C864 160 994 171 1080 240" stroke="#45C0FF" stroke-opacity="0.24" stroke-width="2"/>
+
+  <rect x="72" y="76" width="154" height="36" rx="18" fill="#0F1E37" stroke="#2E71C6" stroke-opacity="0.6"/>
+  <text x="149" y="99" text-anchor="middle" fill="#A9D5FF" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="600">Portfolio Project</text>
+
+  <text x="72" y="192" fill="white" font-family="Segoe UI, Arial, sans-serif" font-size="66" font-weight="700">AI SEO Center</text>
+  <text x="72" y="244" fill="#C2D5EF" font-family="Segoe UI, Arial, sans-serif" font-size="26" font-weight="500">A full-stack SEO command center for AI strategy, backlink operations,</text>
+  <text x="72" y="280" fill="#C2D5EF" font-family="Segoe UI, Arial, sans-serif" font-size="26" font-weight="500">client reporting, and automation across multiple websites.</text>
+
+  <rect x="72" y="328" width="160" height="42" rx="21" fill="#133A6A"/>
+  <text x="152" y="355" text-anchor="middle" fill="white" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="600">AI Routing</text>
+
+  <rect x="244" y="328" width="180" height="42" rx="21" fill="#0F273F" stroke="#2C5D95"/>
+  <text x="334" y="355" text-anchor="middle" fill="#D7E8FF" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="600">Backlink Ops</text>
+
+  <rect x="438" y="328" width="190" height="42" rx="21" fill="#0F273F" stroke="#2C5D95"/>
+  <text x="533" y="355" text-anchor="middle" fill="#D7E8FF" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="600">Client Reporting</text>
+
+  <text x="72" y="440" fill="#8FB3DD" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="500">Built with Next.js 16, Prisma, durable job queues, multi-provider AI failover,</text>
+  <text x="72" y="470" fill="#8FB3DD" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="500">project memory, analytics dashboards, and production deployment tooling.</text>
+
+  <g filter="url(#shadow)">
+    <rect x="778" y="116" width="416" height="344" rx="28" fill="#0D1729" stroke="#21456F" stroke-opacity="0.9"/>
+    <rect x="806" y="144" width="180" height="18" rx="9" fill="#173055"/>
+    <rect x="1002" y="144" width="102" height="18" rx="9" fill="#0E2846"/>
+    <rect x="1118" y="144" width="48" height="18" rx="9" fill="#1D6ED3" fill-opacity="0.85"/>
+
+    <rect x="806" y="192" width="116" height="96" rx="18" fill="#0F213B" stroke="#21456F"/>
+    <text x="830" y="226" fill="#94B9E1" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600">AI Health</text>
+    <text x="830" y="264" fill="white" font-family="Segoe UI, Arial, sans-serif" font-size="30" font-weight="700">98%</text>
+    <text x="830" y="287" fill="#67DA9A" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600">failover-ready</text>
+
+    <rect x="938" y="192" width="228" height="96" rx="18" fill="#0F213B" stroke="#21456F"/>
+    <path d="M962 252C988 234 1009 235 1034 247C1058 259 1081 262 1103 242C1117 229 1131 226 1142 229" stroke="url(#accent)" stroke-width="4" stroke-linecap="round"/>
+    <path d="M962 266H1142" stroke="#1B3658" stroke-width="2" stroke-linecap="round"/>
+    <text x="962" y="226" fill="#94B9E1" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600">Growth Signals</text>
+
+    <rect x="806" y="310" width="360" height="118" rx="22" fill="#0F213B" stroke="#21456F"/>
+    <text x="830" y="340" fill="#94B9E1" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600">Backlink Pipeline</text>
+    <rect x="830" y="358" width="312" height="14" rx="7" fill="#163256"/>
+    <rect x="830" y="358" width="224" height="14" rx="7" fill="url(#accent)"/>
+    <text x="830" y="394" fill="white" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="600">176 qualified opportunities</text>
+    <text x="830" y="418" fill="#88B2DB" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="500">Tracked across discovery, outreach, replies, and live links.</text>
+  </g>
+</svg>
