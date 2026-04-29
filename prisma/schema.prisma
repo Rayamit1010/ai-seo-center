@@ -1,0 +1,452 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  password     String
+  name         String?
+  company      String?   @default("TechGeekStudio")
+  website      String?   @default("https://techgeekstudio.com")
+  role         String    @default("user")
+  createdAt    DateTime  @default(now())
+  audits       Audit[]
+  reports      Report[]
+  reportSchedules ReportSchedule[]
+  reportDeliveries ReportDeliveryLog[]
+  projectProfiles ProjectProfile[]
+  chats        ChatSession[]
+  outreach     OutreachCampaign[]
+  backlinkProspects  BacklinkProspect[]
+  backlinkCampaigns  BacklinkCampaign[]
+  agentConfig        AgentConfig?
+  aiProviderEvents   AIProviderEvent[]
+  agentRuns          AgentRun[]
+  backgroundJobs     BackgroundJob[]
+}
+
+model Audit {
+  id            String    @id @default(cuid())
+  url           String
+  title         String?
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status        String    @default("PENDING")
+  inputType     String    @default("url")
+  rawHtml       String?
+  scrapedData   String?
+  pagespeedData String?
+  scores        String?
+  onPage        String?
+  technical     String?
+  offPage       String?
+  keywords      String?
+  checklist     String?
+  summary       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  reports       Report[]
+  reportSchedules ReportSchedule[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, status, createdAt(sort: Desc)])
+}
+
+model Report {
+  id           String    @id @default(cuid())
+  title        String
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  auditId      String?
+  audit        Audit?    @relation(fields: [auditId], references: [id])
+  type         String
+  content      String
+  createdAt    DateTime  @default(now())
+  deliveries   ReportDeliveryLog[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([auditId])
+}
+
+model ReportSchedule {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  auditId        String?
+  audit          Audit?   @relation(fields: [auditId], references: [id], onDelete: SetNull)
+  targetUrl      String
+  clientName     String
+  projectName    String
+  recipientEmail String
+  frequency      String   // daily | weekly | monthly
+  weekday        Int?
+  monthDay       Int?
+  hour           Int      @default(9)
+  minute         Int      @default(0)
+  timezone       String   @default("UTC")
+  deliveryMode   String   @default("email") // email | draft
+  isActive       Boolean  @default(true)
+  nextRunAt      DateTime
+  lastRunAt      DateTime?
+  leaseUntil     DateTime?
+  processingRunAt DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([isActive, nextRunAt, leaseUntil])
+}
+
+model ReportDeliveryLog {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reportId       String?
+  report         Report?  @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  recipientEmail String
+  subject        String
+  status         String   // sent | failed | queued
+  provider       String   @default("resend")
+  errorMessage   String?
+  createdAt      DateTime @default(now())
+  sentAt         DateTime?
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([reportId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+}
+
+model ProjectProfile {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  websiteUrl      String
+  domain          String
+  industry        String
+  targetCountry   String   @default("Global")
+  targetAudience  String   @default("")
+  brandVoice      String   @default("")
+  businessGoal    String   @default("")
+  conversionGoals String   @default("[]") // JSON: string[]
+  primaryServices String   @default("[]") // JSON: string[]
+  backlinkRules   String   @default("{}") // JSON: { preferredAngles: string[], avoidPatterns: string[], anchorGuidelines: string }
+  contentPlaybook String   @default("{}") // JSON: { pillarTopics: string[], freshnessCadence: string, eeatNotes: string[] }
+  nichePlaybook   String   @default("{}") // JSON: { positioning: string, competitors: string[], differentiators: string[] }
+  searchConsoleSiteUrl String?
+  ga4PropertyId   String?
+  cmsProvider     String   @default("none") // none | wordpress | webhook
+  cmsBaseUrl      String?
+  cmsUsername     String?
+  cmsAppPasswordEnc String?
+  cmsWebhookUrl   String?
+  cmsPublishStatus String  @default("draft") // draft | publish
+  notes           String?
+  isDefault       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, domain])
+}
+
+model ChatSession {
+  id           String        @id @default(cuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String        @default("New Chat")
+  messages     ChatMessage[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([userId, updatedAt(sort: Desc)])
+}
+
+model ChatMessage {
+  id           String      @id @default(cuid())
+  sessionId    String
+  session      ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role         String
+  content      String
+  createdAt    DateTime    @default(now())
+
+  @@index([sessionId, createdAt])
+}
+
+model OutreachCampaign {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetDomain String
+  targetEmail  String?
+  niche        String
+  angle        String
+  emailSubject String?
+  emailBody    String?
+  followUps    String?
+  status       String    @default("draft")
+  createdAt    DateTime  @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, status, createdAt(sort: Desc)])
+}
+
+model KeywordResearch {
+  id            String   @id @default(cuid())
+  userId        String
+  seedKeyword   String
+  targetCountry String
+  industry      String
+  results       String
+  createdAt     DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+// ═══════════════════════════════════════════════════════
+// Autonomous Backlink Agent Models
+// ═══════════════════════════════════════════════════════
+
+model BacklinkCampaign {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name            String
+  targetUrl       String
+  industry        String
+  targetCountry   String
+  competitorUrls  String?  // JSON: string[]
+
+  config          String   // JSON: PipelineConfig
+  status          String   @default("active") // active | paused | completed
+
+  // Denormalized stats
+  totalProspects  Int      @default(0)
+  totalSent       Int      @default(0)
+  totalReplied    Int      @default(0)
+  totalLinks      Int      @default(0)
+
+  prospects       BacklinkProspect[]
+  agentRuns       AgentRun[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, status, createdAt(sort: Desc)])
+}
+
+model BacklinkProspect {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Discovery
+  domain          String
+  url             String
+  discoveryMethod String   // competitor_analysis | guest_post_search | resource_page | broken_link
+  discoveryData   String?  // JSON: scraped context
+
+  // Qualification
+  qualityScore    Int?     // 0-100
+  qualityTier     String?  // tier1 | tier2 | tier3 | rejected
+  relevanceScore  Int?     // 0-10
+  qualifyData     String?  // JSON: full analysis
+
+  // Contact
+  contactName     String?
+  contactEmail    String?
+  contactMethod   String?  // scraped_about | scraped_contact | pattern_guess
+  contactData     String?  // JSON: all found contacts
+
+  // Outreach
+  outreachAngle   String?
+  emailSubject    String?
+  emailBody       String?
+  followUpData    String?  // JSON: { followUp1, followUp2, breakup }
+
+  // Pipeline state
+  stage           String   @default("discovered")
+  stageError      String?
+
+  // Tracking
+  emailSentAt     DateTime?
+  followUp1SentAt DateTime?
+  followUp2SentAt DateTime?
+  breakupSentAt   DateTime?
+  repliedAt       DateTime?
+  linkAcquired    Boolean  @default(false)
+  linkUrl         String?
+
+  campaignId      String?
+  campaign        BacklinkCampaign? @relation(fields: [campaignId], references: [id])
+
+  emailQueueItems EmailQueue[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId, stage, createdAt(sort: Desc)])
+  @@index([campaignId, stage, createdAt(sort: Desc)])
+  @@index([campaignId, linkAcquired])
+  @@index([userId, domain])
+}
+
+model EmailQueue {
+  id              String   @id @default(cuid())
+
+  prospectId      String
+  prospect        BacklinkProspect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  emailType       String   // initial | follow_up_1 | follow_up_2 | breakup
+  toEmail         String
+  fromEmail       String
+  subject         String
+  body            String
+
+  status          String   @default("pending") // pending | sending | sent | failed | cancelled
+  scheduledFor    DateTime
+  sentAt          DateTime?
+  resendId        String?
+  errorMessage    String?
+
+  attempts        Int      @default(0)
+  maxAttempts     Int      @default(3)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status, scheduledFor])
+  @@index([prospectId, status])
+}
+
+model AgentRun {
+  id              String   @id @default(cuid())
+  userId          String?
+  user            User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  campaignId      String?
+  campaign        BacklinkCampaign? @relation(fields: [campaignId], references: [id])
+
+  runType         String   // discover | qualify | find_contact | draft_email | send_email | full_cycle
+  status          String   @default("running") // running | completed | failed
+
+  startedAt       DateTime @default(now())
+  completedAt     DateTime?
+  durationMs      Int?
+
+  itemsProcessed  Int      @default(0)
+  itemsSucceeded  Int      @default(0)
+  itemsFailed     Int      @default(0)
+
+  log             String   @default("[]") // JSON: AgentLogEntry[]
+  errorMessage    String?
+
+  createdAt       DateTime @default(now())
+
+  @@index([campaignId, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+}
+
+model AgentConfig {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Email settings
+  fromEmail       String   @default("")
+  fromName        String   @default("")
+
+  // Limits
+  dailyEmailLimit Int      @default(50)
+  emailsSentToday Int      @default(0)
+  lastResetDate   String?
+
+  // Blocklist
+  blockedDomains  String   @default("[]") // JSON: string[]
+
+  // AI orchestration
+  providerOrder         String   @default("[\"groq\",\"grok\",\"gemini\",\"claude\",\"chatgpt\"]")
+  providerLoopEnabled   Boolean  @default(true)
+  providerCooldownMins  Int      @default(15)
+  chatgptApiKeyEnc      String?
+  claudeApiKeyEnc       String?
+  geminiApiKeyEnc       String?
+  grokApiKeyEnc         String?
+  groqApiKeyEnc         String?
+  chatgptModel          String   @default("gpt-4o")
+  claudeModel           String   @default("claude-sonnet-4-5-20250514")
+  geminiModel           String   @default("gemini-2.5-flash")
+  grokModel             String   @default("grok-4-1-fast-reasoning")
+  groqModel             String   @default("llama-3.3-70b-versatile")
+
+  // Automation toggles
+  autoDiscover    Boolean  @default(true)
+  autoQualify     Boolean  @default(true)
+  autoContact     Boolean  @default(true)
+  autoDraft       Boolean  @default(true)
+  autoSend        Boolean  @default(false)
+  autoFollowUp    Boolean  @default(false)
+  cycleIntervalMinutes Int @default(15)
+  lastHeartbeatAt DateTime?
+  lastCycleQueuedAt DateTime?
+  cycleLeaseUntil DateTime?
+
+  // Master switch
+  isEnabled       Boolean  @default(false)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([isEnabled, cycleLeaseUntil, lastHeartbeatAt, lastCycleQueuedAt])
+}
+
+model AIProviderEvent {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  providerId  String
+  task        String?
+  operation   String
+  success     Boolean
+  failover    Boolean  @default(false)
+  latencyMs   Int
+  errorMessage String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, providerId, createdAt])
+  @@index([userId, task, createdAt])
+}
+
+model BackgroundJob {
+  id                 String   @id @default(cuid())
+  userId             String?
+  user               User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobName            String
+  payload            String
+  status             String   @default("pending") // pending | processing | completed | dead_letter
+  attempts           Int      @default(0)
+  maxAttempts        Int      @default(3)
+  availableAt        DateTime @default(now())
+  processingStartedAt DateTime?
+  leaseUntil         DateTime?
+  lockedBy           String?
+  lastError          String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  completedAt        DateTime?
+
+  @@index([status, availableAt, leaseUntil])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+}

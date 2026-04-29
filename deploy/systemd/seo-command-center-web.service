@@ -1,0 +1,19 @@
+[Unit]
+Description=SEO Command Center web application
+After=network.target
+
+[Service]
+# Replace "deploy" with your actual Linux app user.
+User=deploy
+Group=deploy
+WorkingDirectory=/var/www/seo-command-center
+Environment=NODE_ENV=production
+Environment=PORT=3000
+ExecStart=/bin/bash /var/www/seo-command-center/deploy/run-web.sh
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGINT
+
+[Install]
+WantedBy=multi-user.target
