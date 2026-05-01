@@ -13,6 +13,8 @@ import {
   buildProjectProfileContext,
   resolveRelevantProjectProfile,
 } from "@/lib/services/project-profile-service";
+import { incrementAiUsage } from "@/lib/server/usage-tracker";
+import { isQuotaExceededError } from "@/lib/payments/types";
 
 const chatSchema = z.object({
   message: z.string().trim().min(1, "Message is required").max(12000, "Message is too long"),
@@ -32,6 +34,8 @@ export async function POST(req: Request) {
     if (!userId) {
       return new Response("Unauthorized", { status: 401 });
     }
+
+    await incrementAiUsage(userId);
 
     const body = await req.json();
     const data = chatSchema.parse(body);
@@ -255,6 +259,19 @@ export async function POST(req: Request) {
         }),
         {
           status: 403,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+    if (isQuotaExceededError(error)) {
+      return new Response(
+        JSON.stringify({
+          error: `Daily AI call limit reached (${error.current}/${error.limit}). Upgrade your plan for more calls.`,
+          reason: "quota_exceeded",
+          upgradeUrl: "/billing",
+        }),
+        {
+          status: 402,
           headers: { "Content-Type": "application/json" },
         }
       );

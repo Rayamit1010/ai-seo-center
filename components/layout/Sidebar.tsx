@@ -24,6 +24,7 @@ import {
   Bot,
   Cpu,
   Siren,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +43,7 @@ const navItems = [
   { href: "/ai-analytics", icon: Cpu, label: "AI Analytics" },
   { href: "/ops", icon: Siren, label: "Ops Center" },
   { href: "/reports", icon: BarChart3, label: "Reports" },
+  { href: "/billing", icon: CreditCard, label: "Billing" },
   { href: "/settings", icon: Sliders, label: "Settings" },
 ];
 

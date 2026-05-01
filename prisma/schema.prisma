@@ -29,6 +29,8 @@ model User {
   aiProviderEvents   AIProviderEvent[]
   agentRuns          AgentRun[]
   backgroundJobs     BackgroundJob[]
+  subscriptions      Subscription[]
+  payments           Payment[]
 }
 
 model Audit {
@@ -449,4 +451,107 @@ model BackgroundJob {
   @@index([status, availableAt, leaseUntil])
   @@index([userId, createdAt(sort: Desc)])
   @@index([status, createdAt(sort: Desc)])
+}
+
+// ═══════════════════════════════════════════════════════
+// Billing & Payment Models
+// ═══════════════════════════════════════════════════════
+
+model Plan {
+  id                String         @id @default(cuid())
+  name              String
+  slug              String         @unique
+  description       String?
+  priceMonthlyINR   Float
+  priceMonthlyUSD   Float
+  priceYearlyINR    Float
+  priceYearlyUSD    Float
+  features          String
+  maxProjects       Int            @default(3)
+  maxKeywords       Int            @default(100)
+  maxAiCallsPerDay  Int            @default(50)
+  maxTeamMembers    Int            @default(1)
+  isActive          Boolean        @default(true)
+  stripePriceIdMonthly  String?
+  stripePriceIdYearly   String?
+  razorpayPlanIdMonthly String?
+  razorpayPlanIdYearly  String?
+  createdAt         DateTime       @default(now())
+  subscriptions     Subscription[]
+}
+
+model Subscription {
+  id                    String    @id @default(cuid())
+  userId                String
+  planId                String
+  gateway               String
+  status                String
+  currency              String    @default("INR")
+  billingCycle          String    @default("monthly")
+  currentPeriodStart    DateTime
+  currentPeriodEnd      DateTime
+  cancelAtPeriodEnd     Boolean   @default(false)
+  cancelledAt           DateTime?
+  stripeSubscriptionId  String?   @unique
+  stripeCustomerId      String?
+  razorpaySubscriptionId String?  @unique
+  razorpayCustomerId    String?
+  paypalSubscriptionId  String?   @unique
+  paypalPayerId         String?
+  metadata              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                  Plan      @relation(fields: [planId], references: [id])
+  payments              Payment[]
+
+  @@index([userId, status])
+  @@index([stripeSubscriptionId])
+  @@index([razorpaySubscriptionId])
+  @@index([paypalSubscriptionId])
+}
+
+model Payment {
+  id                  String    @id @default(cuid())
+  userId              String
+  subscriptionId      String?
+  gateway             String
+  gatewayPaymentId    String    @unique
+  gatewayOrderId      String?
+  amount              Float
+  currency            String
+  status              String
+  paymentMethod       String?
+  paymentMethodDetail String?
+  refundId            String?
+  refundAmount        Float?
+  refundedAt          DateTime?
+  failureReason       String?
+  receiptUrl          String?
+  invoiceId           String?
+  metadata            String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription        Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([gateway, gatewayPaymentId])
+  @@index([status])
+}
+
+model GatewayEvent {
+  id          String    @id @default(cuid())
+  gateway     String
+  eventId     String
+  eventType   String
+  payload     String
+  processed   Boolean   @default(false)
+  processedAt DateTime?
+  error       String?
+  createdAt   DateTime  @default(now())
+
+  @@unique([gateway, eventId])
+  @@index([gateway, eventType])
+  @@index([processed])
 }

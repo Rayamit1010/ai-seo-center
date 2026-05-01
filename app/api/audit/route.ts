@@ -6,6 +6,7 @@ import { assertTrustedOrigin, isInvalidOriginError } from "@/lib/server/csrf";
 import { fail, ok } from "@/lib/server/response";
 import { enqueueBackgroundJob } from "@/lib/server/job-queue";
 import { createAuditJob, listAudits } from "@/lib/services/audit-service";
+import { checkFeatureLimit } from "@/lib/server/subscription-guard";
 
 const auditSchema = z.object({
   url: z.string().url().optional(),
@@ -21,6 +22,14 @@ export async function POST(req: Request) {
     // Rate limit: 10 audits per hour per user
     if (!(await checkRateLimit(`audit:${userId}`, 10, 3600000))) {
       return fail("Rate limit exceeded. Max 10 audits per hour.", 429);
+    }
+
+    const projectLimit = await checkFeatureLimit(userId, "projects");
+    if (!projectLimit.allowed) {
+      return fail(
+        `Project limit reached (${projectLimit.current}/${projectLimit.limit}). Upgrade your plan to run more audits.`,
+        402
+      );
     }
 
     const body = await req.json();
