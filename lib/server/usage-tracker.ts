@@ -6,6 +6,7 @@ function todayKey(): string {
 }
 
 export async function incrementAiUsage(userId: string): Promise<void> {
+  // 1. Get subscription plan limit
   const subscription = await prisma.subscription.findFirst({
     where: { userId, status: { in: ["active", "trialing"] } },
     include: { plan: { select: { maxAiCallsPerDay: true } } },
@@ -16,38 +17,31 @@ export async function incrementAiUsage(userId: string): Promise<void> {
   }
 
   const limit = subscription.plan.maxAiCallsPerDay;
-
-  // -1 means unlimited
-  if (limit === -1) return;
-
-  const agentConfig = await prisma.agentConfig.findUnique({
-    where: { userId },
-    select: { emailsSentToday: true, lastResetDate: true },
-  });
+  if (limit === -1) return; // unlimited
 
   const today = todayKey();
 
-  if (!agentConfig) {
-    await prisma.agentConfig.upsert({
-      where: { userId },
-      create: { userId, emailsSentToday: 1, lastResetDate: today },
-      update: { emailsSentToday: 1, lastResetDate: today },
-    });
-    return;
-  }
+  // 2. Use upsert + transaction to safely increment
+  const usage = await prisma.userUsage.upsert({
+    where: { userId },
+    create: { userId, aiCallsToday: 0, aiCallsTotal: 0, lastResetDate: new Date(today) },
+    update: {},
+  });
 
-  const currentDate = agentConfig.lastResetDate;
-  const currentCount = currentDate === today ? agentConfig.emailsSentToday : 0;
+  // Reset if it's a new day
+  const usageDate = usage.lastResetDate.toISOString().slice(0, 10);
+  const currentCount = usageDate === today ? usage.aiCallsToday : 0;
 
   if (currentCount >= limit) {
     throw new QuotaExceededError("aiCalls", currentCount, limit);
   }
 
-  await prisma.agentConfig.update({
+  await prisma.userUsage.update({
     where: { userId },
     data: {
-      emailsSentToday: currentDate === today ? { increment: 1 } : 1,
-      lastResetDate: today,
+      aiCallsToday: usageDate === today ? { increment: 1 } : 1,
+      aiCallsTotal: { increment: 1 },
+      lastResetDate: usageDate === today ? undefined : new Date(today),
     },
   });
 }
@@ -64,13 +58,11 @@ export async function getAiUsageToday(userId: string): Promise<{ used: number; l
   if (limit === -1) return { used: 0, limit: -1 };
 
   const today = todayKey();
-  const agentConfig = await prisma.agentConfig.findUnique({
-    where: { userId },
-    select: { emailsSentToday: true, lastResetDate: true },
-  });
+  const usage = await prisma.userUsage.findUnique({ where: { userId } });
 
-  const used =
-    agentConfig?.lastResetDate === today ? agentConfig.emailsSentToday : 0;
+  if (!usage) return { used: 0, limit };
 
+  const usageDate = usage.lastResetDate.toISOString().slice(0, 10);
+  const used = usageDate === today ? usage.aiCallsToday : 0;
   return { used, limit };
 }

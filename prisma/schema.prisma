@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -31,6 +32,12 @@ model User {
   backgroundJobs     BackgroundJob[]
   subscriptions      Subscription[]
   payments           Payment[]
+  usage              UserUsage?
+  trackedKeywords    TrackedKeyword[]
+  keywordResearches  KeywordResearch2[]
+  contentBriefs      ContentBrief[]
+  ownedTeams         Team[]           @relation("TeamOwner")
+  teamMemberships    TeamMember[]
 }
 
 model Audit {
@@ -554,4 +561,143 @@ model GatewayEvent {
   @@unique([gateway, eventId])
   @@index([gateway, eventType])
   @@index([processed])
+}
+
+// ═══════════════════════════════════════════════════════
+// Usage Tracking
+// ═══════════════════════════════════════════════════════
+
+model UserUsage {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  aiCallsToday  Int      @default(0)
+  aiCallsTotal  Int      @default(0)
+  lastResetDate DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ═══════════════════════════════════════════════════════
+// Rank Tracker Models
+// ═══════════════════════════════════════════════════════
+
+model TrackedKeyword {
+  id             String        @id @default(cuid())
+  userId         String
+  projectId      String?
+  keyword        String
+  targetUrl      String
+  targetDomain   String
+  country        String        @default("IN")
+  device         String        @default("desktop")
+  language       String        @default("en")
+  checkFrequency String        @default("daily")
+  isActive       Boolean       @default(true)
+  lastCheckedAt  DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rankHistory    RankHistory[]
+
+  @@unique([userId, keyword, targetDomain, country, device])
+  @@index([userId, isActive])
+  @@index([userId, projectId])
+}
+
+model RankHistory {
+  id          String   @id @default(cuid())
+  keywordId   String
+  checkedAt   DateTime @default(now())
+  position    Int?
+  previousPos Int?
+  change      Int?
+  url         String?
+  title       String?
+  featured    Boolean  @default(false)
+  device      String   @default("desktop")
+  keyword     TrackedKeyword @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+
+  @@index([keywordId, checkedAt(sort: Desc)])
+  @@index([checkedAt])
+}
+
+// ═══════════════════════════════════════════════════════
+// Keyword Research v2 (with project + source)
+// ═══════════════════════════════════════════════════════
+
+model KeywordResearch2 {
+  id          String   @id @default(cuid())
+  userId      String
+  projectId   String?
+  seedKeyword String
+  results     String
+  source      String   @default("ai")
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+// ═══════════════════════════════════════════════════════
+// Content Briefs
+// ═══════════════════════════════════════════════════════
+
+model ContentBrief {
+  id           String   @id @default(cuid())
+  userId       String
+  keyword      String
+  targetUrl    String?
+  country      String   @default("IN")
+  searchIntent String?
+  wordCount    Int?
+  brief        String
+  outline      String?
+  lsiKeywords  String?
+  status       String   @default("draft")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+// ═══════════════════════════════════════════════════════
+// Team / Multi-User Access
+// ═══════════════════════════════════════════════════════
+
+model Team {
+  id        String       @id @default(cuid())
+  name      String
+  ownerId   String
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  owner     User         @relation("TeamOwner", fields: [ownerId], references: [id])
+  members   TeamMember[]
+  invites   TeamInvite[]
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  teamId    String
+  userId    String
+  role      String   @default("viewer")
+  joinedAt  DateTime @default(now())
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+}
+
+model TeamInvite {
+  id         String    @id @default(cuid())
+  teamId     String
+  email      String
+  role       String    @default("viewer")
+  token      String    @unique @default(cuid())
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime  @default(now())
+  team       Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([token])
 }

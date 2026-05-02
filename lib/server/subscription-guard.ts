@@ -5,6 +5,7 @@ import {
   type FeatureLimitResult,
   type SubscriptionWithPlan,
 } from "@/lib/payments/types";
+import { getAiUsageToday } from "@/lib/server/usage-tracker";
 
 export async function requireSubscription(userId: string): Promise<SubscriptionWithPlan> {
   const subscription = await prisma.subscription.findFirst({
@@ -39,7 +40,7 @@ export async function requireSubscription(userId: string): Promise<SubscriptionW
 
 export async function checkFeatureLimit(
   userId: string,
-  feature: "projects" | "keywords" | "teamMembers"
+  feature: "projects" | "keywords" | "teamMembers" | "aiCalls"
 ): Promise<FeatureLimitResult> {
   const subscription = await prisma.subscription.findFirst({
     where: { userId, status: { in: ["active", "trialing"] } },
@@ -66,9 +67,56 @@ export async function checkFeatureLimit(
     case "teamMembers": {
       return { allowed: true, current: 1, limit: plan.maxTeamMembers, feature };
     }
+    case "aiCalls": {
+      const { used, limit } = await getAiUsageToday(userId);
+      return { allowed: limit === -1 || used < limit, current: used, limit, feature };
+    }
     default:
       return { allowed: true, current: 0, limit: -1, feature };
   }
+}
+
+export async function getUsageSummary(userId: string): Promise<{
+  aiCallsToday: number;
+  aiCallsLimit: number;
+  projectsCount: number;
+  projectsLimit: number;
+  keywordsCount: number;
+  keywordsLimit: number;
+  teamMembersCount: number;
+  teamMembersLimit: number;
+}> {
+  const subscription = await prisma.subscription.findFirst({
+    where: { userId, status: { in: ["active", "trialing"] } },
+    include: { plan: true },
+  });
+
+  if (!subscription) {
+    return {
+      aiCallsToday: 0, aiCallsLimit: 0,
+      projectsCount: 0, projectsLimit: 0,
+      keywordsCount: 0, keywordsLimit: 0,
+      teamMembersCount: 0, teamMembersLimit: 0,
+    };
+  }
+
+  const plan = subscription.plan;
+  const [aiUsage, projectsCount, keywordsCount] = await Promise.all([
+    getAiUsageToday(userId),
+    prisma.projectProfile.count({ where: { userId } }),
+    prisma.trackedKeyword.count({ where: { userId, isActive: true } }),
+  ]);
+
+  return {
+    aiCallsToday: aiUsage.used,
+    aiCallsLimit: aiUsage.limit,
+    projectsCount,
+    projectsLimit: plan.maxProjects,
+    keywordsCount,
+    keywordsLimit: plan.maxKeywords,
+    teamMembersCount: 1, // simplified
+    teamMembersLimit: plan.maxTeamMembers,
+  };
 }
 
 export { PaymentRequiredError, QuotaExceededError };

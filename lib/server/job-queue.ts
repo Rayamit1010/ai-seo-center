@@ -8,6 +8,7 @@ import {
   markScheduleRunFailed,
   sendReportEmail,
 } from "@/lib/services/report-automation-service";
+import { bulkCheckRankings } from "@/lib/rank-tracker/dataforseo";
 
 export type ProcessAuditJob = {
   name: "process-audit";
@@ -59,11 +60,20 @@ export type RunAgentCycleJob = {
   };
 };
 
+export type RankCheckJob = {
+  name: "rank-check";
+  payload: {
+    keywordIds: string[];
+    userId: string;
+  };
+};
+
 export type BackgroundJob =
   | ProcessAuditJob
   | SendReportEmailJob
   | RunReportScheduleJob
-  | RunAgentCycleJob;
+  | RunAgentCycleJob
+  | RankCheckJob;
 
 type QueueProvider = "database" | "memory" | "redis";
 
@@ -106,6 +116,7 @@ const JOB_LEASE_MS: Record<BackgroundJob["name"], number> = {
   "send-report-email": 5 * 60 * 1000,
   "run-report-schedule": 15 * 60 * 1000,
   "run-agent-cycle": 20 * 60 * 1000,
+  "rank-check": 10 * 60 * 1000,
 };
 
 const JOB_MAX_ATTEMPTS: Record<BackgroundJob["name"], number> = {
@@ -113,6 +124,7 @@ const JOB_MAX_ATTEMPTS: Record<BackgroundJob["name"], number> = {
   "send-report-email": 1,
   "run-report-schedule": 1,
   "run-agent-cycle": 1,
+  "rank-check": 2,
 };
 
 const globalForQueue = globalThis as unknown as {
@@ -222,6 +234,7 @@ function getRetryDelayMs(jobName: BackgroundJob["name"], attempts: number) {
     "send-report-email": [0],
     "run-report-schedule": [60_000, 5 * 60_000, 15 * 60_000],
     "run-agent-cycle": [0],
+    "rank-check": [60_000, 5 * 60_000],
   };
 
   const delays = baseByJob[jobName];
@@ -244,6 +257,8 @@ function parsePersistedJob(jobName: string, payload: string): BackgroundJob {
       return { name: "run-report-schedule", payload: parsedPayload as RunReportScheduleJob["payload"] };
     case "run-agent-cycle":
       return { name: "run-agent-cycle", payload: parsedPayload as RunAgentCycleJob["payload"] };
+    case "rank-check":
+      return { name: "rank-check", payload: parsedPayload as RankCheckJob["payload"] };
     default:
       throw new Error(`Unknown background job type: ${jobName}`);
   }
@@ -284,6 +299,9 @@ async function executeBackgroundJob(job: BackgroundJob) {
     }
     case "run-agent-cycle":
       await runAgentCycle(job.payload.userId);
+      return;
+    case "rank-check":
+      await bulkCheckRankings(job.payload.keywordIds);
       return;
   }
 }

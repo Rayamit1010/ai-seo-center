@@ -25,6 +25,9 @@ import {
   Cpu,
   Siren,
   CreditCard,
+  TrendingUp,
+  BookOpen,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -32,9 +35,11 @@ const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/audit", icon: Search, label: "New Audit" },
   { href: "/keywords", icon: Tags, label: "Keywords" },
+  { href: "/rank-tracker", icon: TrendingUp, label: "Rank Tracker" },
   { href: "/backlinks", icon: LinkIcon, label: "Backlinks" },
   { href: "/technical", icon: Settings, label: "Technical" },
   { href: "/content", icon: FileText, label: "Content" },
+  { href: "/briefs", icon: BookOpen, label: "Content Briefs" },
   { href: "/outreach", icon: Mail, label: "Outreach" },
   { href: "/agent", icon: Bot, label: "AI Agent" },
   { href: "/authority", icon: Trophy, label: "Authority" },
@@ -44,6 +49,7 @@ const navItems = [
   { href: "/ops", icon: Siren, label: "Ops Center" },
   { href: "/reports", icon: BarChart3, label: "Reports" },
   { href: "/billing", icon: CreditCard, label: "Billing" },
+  { href: "/settings/team", icon: Users, label: "Team" },
   { href: "/settings", icon: Sliders, label: "Settings" },
 ];
 
