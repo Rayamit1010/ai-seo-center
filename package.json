@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && prisma db push --accept-data-loss && prisma db seed && next build",
     "start": "next start",
     "lint": "eslint",
     "test": "node --import tsx --test tests/**/*.test.ts",
