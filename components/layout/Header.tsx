@@ -22,6 +22,7 @@ const pageTitles: Record<string, string> = {
   "/ops": "Operations Center",
   "/reports": "Reports",
   "/settings": "Settings",
+  "/competitors": "Competitor Tracking",
 };
 
 export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
@@ -101,17 +102,28 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
               <div className="mb-3 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-text-primary">Notifications</p>
-                  <p className="text-xs text-text-muted">
-                    Live system and AI activity
-                  </p>
+                  <p className="text-xs text-text-muted">Recent activity</p>
                 </div>
-                <Link
-                  href="/ops"
-                  className="text-xs font-medium text-primary hover:underline"
-                  onClick={() => setOpen(false)}
-                >
-                  Open Ops Center
-                </Link>
+                <div className="flex items-center gap-3">
+                  {data.unreadCount > 0 && (
+                    <button
+                      className="text-xs font-medium text-primary hover:underline"
+                      onClick={async () => {
+                        await fetch("/api/notifications/mark-read", { method: "POST" });
+                        window.location.reload();
+                      }}
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                  <Link
+                    href="/ops"
+                    className="text-xs font-medium text-text-muted hover:text-primary"
+                    onClick={() => setOpen(false)}
+                  >
+                    Ops Center
+                  </Link>
+                </div>
               </div>
 
               {error ? (

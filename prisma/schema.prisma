@@ -35,6 +35,9 @@ model User {
   trackedKeywords    TrackedKeyword[]
   keywordResearches  KeywordResearch2[]
   contentBriefs      ContentBrief[]
+  contentDrafts      ContentDraft[]
+  notifications      Notification[]
+  competitors        CompetitorTracking[]
   ownedTeams         Team[]           @relation("TeamOwner")
   teamMemberships    TeamMember[]
 }
@@ -655,7 +658,8 @@ model ContentBrief {
   status       String   @default("draft")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  drafts       ContentDraft[]
 
   @@index([userId, createdAt(sort: Desc)])
 }
@@ -699,4 +703,66 @@ model TeamInvite {
   team       Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@index([token])
+}
+
+// ═══════════════════════════════════════════════════════
+// V2: Notifications
+// ═══════════════════════════════════════════════════════
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // rank_drop | audit_complete | invite | system | content
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  url       String?
+  data      String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read, createdAt(sort: Desc)])
+}
+
+// ═══════════════════════════════════════════════════════
+// V2: Full Article / Content Drafts
+// ═══════════════════════════════════════════════════════
+
+model ContentDraft {
+  id        String   @id @default(cuid())
+  userId    String
+  briefId   String?
+  keyword   String
+  title     String
+  content   String
+  metaTitle String?
+  metaDesc  String?
+  wordCount Int      @default(0)
+  tone      String   @default("professional")
+  status    String   @default("draft")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brief     ContentBrief? @relation(fields: [briefId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+// ═══════════════════════════════════════════════════════
+// V2: Competitor Tracking
+// ═══════════════════════════════════════════════════════
+
+model CompetitorTracking {
+  id           String   @id @default(cuid())
+  userId       String
+  projectId    String?
+  domain       String
+  name         String?
+  notes        String?
+  trackedSince DateTime @default(now())
+  lastChecked  DateTime?
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@unique([userId, domain])
 }
