@@ -1,11 +1,14 @@
 import { prisma } from "@/lib/db";
 import { QuotaExceededError } from "@/lib/payments/types";
+import { isAdminUser } from "@/lib/server/auth";
 
 function todayKey(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
 export async function incrementAiUsage(userId: string): Promise<void> {
+  if (await isAdminUser(userId)) return; // unlimited — no tracking needed
+
   // 1. Get subscription plan limit
   const subscription = await prisma.subscription.findFirst({
     where: { userId, status: { in: ["active", "trialing"] } },
@@ -47,6 +50,8 @@ export async function incrementAiUsage(userId: string): Promise<void> {
 }
 
 export async function getAiUsageToday(userId: string): Promise<{ used: number; limit: number }> {
+  if (await isAdminUser(userId)) return { used: 0, limit: -1 };
+
   const subscription = await prisma.subscription.findFirst({
     where: { userId, status: { in: ["active", "trialing"] } },
     include: { plan: { select: { maxAiCallsPerDay: true } } },

@@ -6,8 +6,43 @@ import {
   type SubscriptionWithPlan,
 } from "@/lib/payments/types";
 import { getAiUsageToday } from "@/lib/server/usage-tracker";
+import { isAdminUser } from "@/lib/server/auth";
+
+// Synthetic unlimited plan returned for admin users.
+const ADMIN_PLAN = {
+  id: "admin",
+  name: "White-Label",
+  slug: "white-label",
+  priceMonthlyINR: 0,
+  priceMonthlyUSD: 0,
+  priceYearlyINR: 0,
+  priceYearlyUSD: 0,
+  features: "[]",
+  maxProjects: -1,
+  maxKeywords: -1,
+  maxAiCallsPerDay: -1,
+  maxTeamMembers: -1,
+};
+
+const ADMIN_SUBSCRIPTION: SubscriptionWithPlan = {
+  id: "admin",
+  userId: "",
+  planId: "admin",
+  gateway: "stripe",
+  status: "active",
+  currency: "USD",
+  billingCycle: "yearly",
+  currentPeriodStart: new Date(0),
+  currentPeriodEnd: new Date("2099-12-31"),
+  cancelAtPeriodEnd: false,
+  plan: ADMIN_PLAN,
+};
 
 export async function requireSubscription(userId: string): Promise<SubscriptionWithPlan> {
+  if (await isAdminUser(userId)) {
+    return { ...ADMIN_SUBSCRIPTION, userId };
+  }
+
   const subscription = await prisma.subscription.findFirst({
     where: { userId, status: { in: ["active", "trialing"] } },
     orderBy: { createdAt: "desc" },
@@ -42,6 +77,10 @@ export async function checkFeatureLimit(
   userId: string,
   feature: "projects" | "keywords" | "teamMembers" | "aiCalls"
 ): Promise<FeatureLimitResult> {
+  if (await isAdminUser(userId)) {
+    return { allowed: true, current: 0, limit: -1, feature };
+  }
+
   const subscription = await prisma.subscription.findFirst({
     where: { userId, status: { in: ["active", "trialing"] } },
     include: { plan: true },
@@ -86,6 +125,23 @@ export async function getUsageSummary(userId: string): Promise<{
   teamMembersCount: number;
   teamMembersLimit: number;
 }> {
+  if (await isAdminUser(userId)) {
+    const [projectsCount, keywordsCount] = await Promise.all([
+      prisma.projectProfile.count({ where: { userId } }),
+      prisma.trackedKeyword.count({ where: { userId, isActive: true } }),
+    ]);
+    return {
+      aiCallsToday: 0,
+      aiCallsLimit: -1,
+      projectsCount,
+      projectsLimit: -1,
+      keywordsCount,
+      keywordsLimit: -1,
+      teamMembersCount: 0,
+      teamMembersLimit: -1,
+    };
+  }
+
   const subscription = await prisma.subscription.findFirst({
     where: { userId, status: { in: ["active", "trialing"] } },
     include: { plan: true },

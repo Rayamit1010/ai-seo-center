@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 
 export class UnauthorizedApiError extends Error {
   constructor() {
@@ -21,4 +22,13 @@ export async function getRequiredUserId(): Promise<string> {
 
 export function isUnauthorizedApiError(error: unknown): error is UnauthorizedApiError {
   return error instanceof UnauthorizedApiError;
+}
+
+// Admin/owner users bypass all subscription and quota checks.
+export async function isAdminUser(userId: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+  return user?.role === "admin";
 }
