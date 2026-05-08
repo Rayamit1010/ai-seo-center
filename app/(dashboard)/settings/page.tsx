@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-type ProviderId = "claude" | "chatgpt" | "gemini" | "grok" | "groq";
+type ProviderId = "claude" | "chatgpt" | "gemini" | "grok" | "groq" | "openrouter";
 
 interface ProviderSettings {
   id: ProviderId;
@@ -45,6 +45,7 @@ const PROVIDER_LABELS: Record<ProviderId, string> = {
   gemini: "Gemini",
   grok: "Grok (xAI)",
   groq: "Groq",
+  openrouter: "OpenRouter",
 };
 
 const PROVIDER_HELP: Record<ProviderId, string> = {
@@ -53,6 +54,7 @@ const PROVIDER_HELP: Record<ProviderId, string> = {
   gemini: "Use a Google Gemini API key here.",
   grok: "Use an xAI key here. Groq keys will not work in this field.",
   groq: "Use a Groq key here. Groq keys usually start with gsk_.",
+  openrouter: "Use an OpenRouter key (sk-or-v1-...). Supports 100+ models — set the model field to e.g. openai/gpt-4o or anthropic/claude-3.5-sonnet.",
 };
 
 function isGroqKey(value: string) {
@@ -69,6 +71,7 @@ export default function SettingsPage() {
     "gemini",
     "claude",
     "chatgpt",
+    "openrouter",
   ]);
   const [providerLoopEnabled, setProviderLoopEnabled] = useState(true);
   const [providerCooldownMins, setProviderCooldownMins] = useState(15);
@@ -118,6 +121,15 @@ export default function SettingsPage() {
       source: "none",
       cooldownUntil: null,
     },
+    openrouter: {
+      id: "openrouter",
+      name: "OpenRouter",
+      model: "openai/gpt-4o",
+      hasKey: false,
+      keyPreview: null,
+      source: "none",
+      cooldownUntil: null,
+    },
   });
   const [apiKeyDrafts, setApiKeyDrafts] = useState<Record<ProviderId, string>>({
     claude: "",
@@ -125,6 +137,7 @@ export default function SettingsPage() {
     gemini: "",
     grok: "",
     groq: "",
+    openrouter: "",
   });
   const [clearedProviders, setClearedProviders] = useState<Record<ProviderId, boolean>>({
     claude: false,
@@ -132,6 +145,7 @@ export default function SettingsPage() {
     gemini: false,
     grok: false,
     groq: false,
+    openrouter: false,
   });
 
   const user = session?.user;
@@ -165,6 +179,7 @@ export default function SettingsPage() {
         gemini: false,
         grok: false,
         groq: false,
+        openrouter: false,
       });
     } catch (error) {
       console.error(error);
@@ -226,11 +241,13 @@ export default function SettingsPage() {
         geminiModel: providers.gemini.model,
         grokModel: providers.grok.model,
         groqModel: providers.groq.model,
+        openrouterModel: providers.openrouter.model,
         claudeApiKey: clearedProviders.claude ? "" : apiKeyDrafts.claude || undefined,
         chatgptApiKey: clearedProviders.chatgpt ? "" : apiKeyDrafts.chatgpt || undefined,
         geminiApiKey: clearedProviders.gemini ? "" : apiKeyDrafts.gemini || undefined,
         grokApiKey: clearedProviders.grok ? "" : moveGroqKeyFromGrok ? "" : apiKeyDrafts.grok || undefined,
         groqApiKey: clearedProviders.groq ? "" : moveGroqKeyFromGrok ? apiKeyDrafts.grok : apiKeyDrafts.groq || undefined,
+        openrouterApiKey: clearedProviders.openrouter ? "" : apiKeyDrafts.openrouter || undefined,
       };
 
       const response = await fetch("/api/agent/config", {
@@ -250,6 +267,7 @@ export default function SettingsPage() {
         gemini: "",
         grok: "",
         groq: "",
+        openrouter: "",
       });
       setClearedProviders({
         claude: false,
@@ -257,6 +275,7 @@ export default function SettingsPage() {
         gemini: false,
         grok: false,
         groq: false,
+        openrouter: false,
       });
 
       toast.success("AI orchestration settings saved");

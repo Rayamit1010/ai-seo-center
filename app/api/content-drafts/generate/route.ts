@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import Anthropic from "@anthropic-ai/sdk";
 import { getRequiredUserId, isUnauthorizedApiError } from "@/lib/server/auth";
 import { assertTrustedOrigin, isInvalidOriginError } from "@/lib/server/csrf";
-import { checkRateLimit } from "@/lib/server/rate-limiter";
+import { checkRateLimit } from "@/lib/server/rate-limit";
 import { ok, fail } from "@/lib/server/response";
 import { prisma } from "@/lib/db";
+import { callClaude } from "@/lib/anthropic";
 import {
   ARTICLE_SYSTEM_PROMPT,
   buildArticlePrompt,
@@ -61,27 +61,13 @@ export async function POST(req: Request) {
       }
     }
 
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 8000,
-      system: ARTICLE_SYSTEM_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: buildArticlePrompt(
-            data.keyword,
-            data.tone,
-            outline,
-            lsiKeywords,
-            targetAudience,
-            wordCount
-          ),
-        },
-      ],
-    });
+    const rawText = await callClaude(
+      ARTICLE_SYSTEM_PROMPT,
+      buildArticlePrompt(data.keyword, data.tone, outline, lsiKeywords, targetAudience, wordCount),
+      8000,
+      { userId, task: "article-generate" }
+    );
 
-    const rawText = response.content[0]?.type === "text" ? response.content[0].text : "";
     let parsed: ArticleOutput;
     try {
       const jsonMatch = rawText.match(/\{[\s\S]*\}/);

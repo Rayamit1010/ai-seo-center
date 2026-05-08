@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/db";
 import { decryptSecret, maskSecret } from "@/lib/crypto";
 
-export type AIProviderId = "claude" | "chatgpt" | "gemini" | "grok" | "groq";
+export type AIProviderId = "claude" | "chatgpt" | "gemini" | "grok" | "groq" | "openrouter";
 
 export interface AIRequestOptions {
   userId?: string;
@@ -57,6 +57,7 @@ const DEFAULT_PROVIDER_ORDER: AIProviderId[] = [
   "gemini",
   "claude",
   "chatgpt",
+  "openrouter",
 ];
 
 const PROVIDERS: Record<AIProviderId, ProviderDefinition> = {
@@ -108,6 +109,19 @@ const PROVIDERS: Record<AIProviderId, ProviderDefinition> = {
     defaultModel: "llama-3.3-70b-versatile",
     tokenField: "max_completion_tokens",
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+  },
+  openrouter: {
+    id: "openrouter",
+    name: "OpenRouter",
+    transport: "openai",
+    url: "https://openrouter.ai/api/v1/chat/completions",
+    envKey: process.env.OPENROUTER_API_KEY,
+    defaultModel: "openai/gpt-4o",
+    authHeader: (key) => ({
+      Authorization: `Bearer ${key}`,
+      "HTTP-Referer": "https://techgeekstudio.com",
+      "X-Title": "TechGeekStudio SEO Center",
+    }),
   },
 };
 
@@ -162,6 +176,7 @@ function getMetricsBucket(userId?: string) {
     gemini: getEmptyMetrics(),
     grok: getEmptyMetrics(),
     groq: getEmptyMetrics(),
+    openrouter: getEmptyMetrics(),
   } satisfies Record<AIProviderId, ProviderMetrics>;
 
   providerMetrics.set(key, fresh);
@@ -304,11 +319,15 @@ function normalizeProviderOrder(raw: string | null | undefined) {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return DEFAULT_PROVIDER_ORDER;
 
-    const legacyDefaultOrder = ["claude", "chatgpt", "gemini", "grok"];
-    if (
-      parsed.length === legacyDefaultOrder.length &&
-      parsed.every((value, index) => value === legacyDefaultOrder[index])
-    ) {
+    const legacyDefaultOrders = [
+      ["claude", "chatgpt", "gemini", "grok"],
+      ["groq", "grok", "gemini", "claude", "chatgpt"],
+    ];
+    if (legacyDefaultOrders.some(
+      (legacy) =>
+        parsed.length === legacy.length &&
+        parsed.every((value: unknown, index: number) => value === legacy[index])
+    )) {
       return DEFAULT_PROVIDER_ORDER;
     }
 
@@ -371,6 +390,7 @@ async function resolveProviders(userId?: string): Promise<ProviderResolution> {
     gemini: decryptSecret(config?.geminiApiKeyEnc),
     grok: decryptSecret(config?.grokApiKeyEnc),
     groq: decryptSecret(config?.groqApiKeyEnc),
+    openrouter: decryptSecret(config?.openrouterApiKeyEnc),
   } satisfies Record<AIProviderId, string | undefined>;
 
   const modelOverrides = {
@@ -379,6 +399,7 @@ async function resolveProviders(userId?: string): Promise<ProviderResolution> {
     gemini: config?.geminiModel,
     grok: config?.grokModel,
     groq: config?.groqModel,
+    openrouter: config?.openrouterModel,
   } satisfies Record<AIProviderId, string | null | undefined>;
 
   const providers = Object.fromEntries(

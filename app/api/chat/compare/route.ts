@@ -17,9 +17,9 @@ import {
 const compareSchema = z.object({
   message: z.string().min(1, "Message is required"),
   providers: z
-    .array(z.enum(["claude", "chatgpt", "gemini", "grok", "groq"]))
+    .array(z.enum(["claude", "chatgpt", "gemini", "grok", "groq", "openrouter"]))
     .min(2)
-    .max(5),
+    .max(6),
 });
 
 export async function POST(req: Request) {

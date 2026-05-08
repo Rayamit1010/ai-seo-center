@@ -388,7 +388,7 @@ model AgentConfig {
   blockedDomains  String   @default("[]") // JSON: string[]
 
   // AI orchestration
-  providerOrder         String   @default("[\"groq\",\"grok\",\"gemini\",\"claude\",\"chatgpt\"]")
+  providerOrder         String   @default("[\"groq\",\"grok\",\"gemini\",\"claude\",\"chatgpt\",\"openrouter\"]")
   providerLoopEnabled   Boolean  @default(true)
   providerCooldownMins  Int      @default(15)
   chatgptApiKeyEnc      String?
@@ -396,11 +396,13 @@ model AgentConfig {
   geminiApiKeyEnc       String?
   grokApiKeyEnc         String?
   groqApiKeyEnc         String?
+  openrouterApiKeyEnc   String?
   chatgptModel          String   @default("gpt-4o")
   claudeModel           String   @default("claude-sonnet-4-5-20250514")
   geminiModel           String   @default("gemini-2.5-flash")
   grokModel             String   @default("grok-4-1-fast-reasoning")
   groqModel             String   @default("llama-3.3-70b-versatile")
+  openrouterModel       String   @default("openai/gpt-4o")
 
   // Automation toggles
   autoDiscover    Boolean  @default(true)
