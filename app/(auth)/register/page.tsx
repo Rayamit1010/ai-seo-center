@@ -37,8 +37,8 @@ export default function RegisterPage() {
         return;
       }
 
-      toast.success("Account created! Please sign in.");
-      router.push("/login");
+      toast.success("Account created! Please verify your email.");
+      router.push("/verify-email");
     } catch {
       toast.error("Something went wrong");
     } finally {

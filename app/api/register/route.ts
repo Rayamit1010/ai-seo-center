@@ -4,6 +4,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { assertTrustedOrigin, isInvalidOriginError } from "@/lib/server/csrf";
 import { checkRateLimit } from "@/lib/server/rate-limit";
+import { getResendClient } from "@/lib/resend";
+
+const VERIFICATION_EXPIRY_MS = 24 * 60 * 60 * 1000;
 
 const registerSchema = z.object({
   email: z.string().trim().email("Invalid email address"),
@@ -33,10 +36,7 @@ export async function POST(req: Request) {
     const data = registerSchema.parse(body);
     const normalizedEmail = data.email.trim().toLowerCase();
 
-    const existing = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
-    });
-
+    const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existing) {
       return NextResponse.json(
         { error: "An account with this email already exists" },
@@ -51,13 +51,49 @@ export async function POST(req: Request) {
         email: normalizedEmail,
         password: hashedPassword,
         name: data.name,
-        company: data.company || "TechGeekStudio",
-        website: data.website || "https://techgeekstudio.com",
+        company: data.company?.trim() || null,
+        website: data.website?.trim() || null,
+        emailVerified: false,
       },
     });
 
+    // Create verification token and send email (non-blocking — don't fail registration)
+    try {
+      const token = await prisma.emailVerificationToken.create({
+        data: {
+          userId: user.id,
+          expiresAt: new Date(Date.now() + VERIFICATION_EXPIRY_MS),
+        },
+      });
+
+      const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+      const verifyUrl = `${appUrl}/api/auth/verify-email?token=${token.token}`;
+
+      const resend = getResendClient();
+      await resend.emails.send({
+        from: "TGS SEO Center <noreply@techgeekstudio.com>",
+        to: normalizedEmail,
+        subject: "Verify your TechGeekStudio SEO Center email",
+        html: `
+          <p>Hi ${data.name},</p>
+          <p>Welcome! Please verify your email to activate your account:</p>
+          <p>
+            <a href="${verifyUrl}" style="background:#6366f1;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block">
+              Verify Email
+            </a>
+          </p>
+          <p>This link expires in 24 hours.</p>
+          <p>— TechGeekStudio Team</p>
+        `,
+      });
+    } catch (emailError) {
+      // Email failure doesn't block account creation
+      console.error("Verification email failed:", emailError);
+    }
+
     return NextResponse.json({
       success: true,
+      requiresVerification: true,
       user: { id: user.id, email: user.email, name: user.name },
     });
   } catch (error) {
@@ -68,15 +104,9 @@ export async function POST(req: Request) {
       );
     }
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: error.errors[0].message },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
     }
     console.error("Registration error:", error);
-    return NextResponse.json(
-      { error: "Registration failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Registration failed" }, { status: 500 });
   }
 }

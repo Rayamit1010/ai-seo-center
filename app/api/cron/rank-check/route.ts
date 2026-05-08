@@ -10,7 +10,8 @@ function isAuthorizedCronRequest(req: Request): boolean {
   if (!secret) {
     return process.env.NODE_ENV !== "production";
   }
-  return req.headers.get("x-cron-secret") === secret;
+  // Vercel Cron sends Authorization: Bearer <secret>
+  return req.headers.get("authorization") === `Bearer ${secret}`;
 }
 
 export async function GET(req: Request) {

@@ -16,6 +16,7 @@ async function main() {
       company: "TechGeekStudio",
       website: "https://techgeekstudio.com",
       role: "admin",
+      emailVerified: true,
     },
   });
 
