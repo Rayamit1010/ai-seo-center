@@ -8,9 +8,9 @@ export const dynamic = "force-dynamic";
 function isAuthorizedCronRequest(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) {
+    // Fail closed in production — no secret means no access
     return process.env.NODE_ENV !== "production";
   }
-  // Vercel Cron sends Authorization: Bearer <secret>
   return req.headers.get("authorization") === `Bearer ${secret}`;
 }
 

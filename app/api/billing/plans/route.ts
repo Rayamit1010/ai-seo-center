@@ -16,10 +16,6 @@ export async function GET() {
         priceYearlyINR: true,
         priceYearlyUSD: true,
         features: true,
-        maxProjects: true,
-        maxKeywords: true,
-        maxAiCallsPerDay: true,
-        maxTeamMembers: true,
       },
     });
 

@@ -7,6 +7,7 @@ export const maxDuration = 60;
 function isAuthorizedCronRequest(request: Request) {
   const configuredSecret = process.env.CRON_SECRET;
   if (!configuredSecret) {
+    // Fail closed in production — no secret means no access
     return process.env.NODE_ENV !== "production";
   }
 

@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { checkRateLimit } from "@/lib/server/rate-limit";
 
 export async function GET(req: Request) {
+  const ip = req.headers.get("x-forwarded-for") ?? "unknown";
+  if (!(await checkRateLimit(`verify-email:${ip}`, 20, 3_600_000))) {
+    return NextResponse.redirect(new URL("/verify-email?error=failed", req.url));
+  }
+
   const { searchParams } = new URL(req.url);
   const token = searchParams.get("token");
 
