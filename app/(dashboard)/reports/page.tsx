@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -105,7 +105,7 @@ const DEFAULT_META: ReportMeta = {
   footerNote: "",
 };
 
-export default function ReportsPage() {
+function ReportsPageContent() {
   const searchParams = useSearchParams();
   const [audits, setAudits] = useState<AuditItem[]>([]);
   const [reports, setReports] = useState<SavedReportItem[]>([]);
@@ -1443,6 +1443,14 @@ export default function ReportsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ReportsPage() {
+  return (
+    <Suspense>
+      <ReportsPageContent />
+    </Suspense>
   );
 }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Zap, CheckCircle, XCircle, Mail } from "lucide-react";
@@ -11,7 +12,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   failed: "Verification failed due to a server error. Please try again.",
 };
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const success = searchParams.get("success");
   const error = searchParams.get("error");
@@ -66,7 +67,6 @@ export default function VerifyEmailPage() {
     );
   }
 
-  // Default: prompt to check email (shown right after registration)
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-md text-center">
@@ -87,5 +87,13 @@ export default function VerifyEmailPage() {
         </Link>
       </div>
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense>
+      <VerifyEmailContent />
+    </Suspense>
   );
 }
