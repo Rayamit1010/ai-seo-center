@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Providers } from "@/components/providers";
+import { QuotaNudgeBanner } from "@/components/quota-nudge-banner";
 
 function DashboardShell({ children }: { children: React.ReactNode }) {
   const { status } = useSession();
@@ -37,7 +38,12 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       <Sidebar />
       <div className="flex flex-1 flex-col pl-[240px] max-lg:pl-[64px]">
         <Header />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <div className="flex-1 overflow-y-auto">
+          <div className="px-6 pt-4">
+            <QuotaNudgeBanner />
+          </div>
+          <main className="p-6">{children}</main>
+        </div>
       </div>
     </div>
   );
