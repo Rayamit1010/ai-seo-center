@@ -1,3 +1,56 @@
+/** Subscription activation confirmation email. */
+export function buildSubscriptionConfirmationEmail(data: {
+  userName: string;
+  planName: string;
+  billingCycle: string;
+  amount: string;
+  currency: string;
+  nextBillingDate: Date;
+  dashboardUrl: string;
+  unsubscribeFooter: string;
+}): { subject: string; html: string } {
+  const nextFormatted = data.nextBillingDate.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  return {
+    subject: `Welcome to ${data.planName} — Your subscription is active`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#07090F;font-family:'Inter',Arial,sans-serif;">
+  <div style="max-width:600px;margin:0 auto;padding:40px 20px;">
+    <div style="text-align:center;margin-bottom:32px;">
+      <h1 style="color:#E2E8F0;font-size:24px;margin:0;">TechGeekStudio SEO</h1>
+    </div>
+    <div style="background:#0D1117;border:1px solid #00C896;border-radius:12px;padding:24px;margin-bottom:24px;">
+      <p style="color:#00C896;font-size:13px;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Subscription Confirmed ✓</p>
+      <p style="color:#E2E8F0;font-size:16px;margin:0 0 12px;">Hi ${data.userName}, you're all set!</p>
+      <p style="color:#A0AEC0;font-size:14px;margin:0;">Your <strong style="color:#E2E8F0;">${data.planName}</strong> plan (${data.billingCycle}) is now active.</p>
+    </div>
+    <div style="background:#0D1117;border:1px solid #1C2333;border-radius:12px;padding:24px;margin-bottom:24px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+        <span style="color:#718096;font-size:14px;">Amount charged</span>
+        <span style="color:#E2E8F0;font-size:14px;font-weight:600;">${data.currency} ${data.amount}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span style="color:#718096;font-size:14px;">Next billing date</span>
+        <span style="color:#E2E8F0;font-size:14px;">${nextFormatted}</span>
+      </div>
+    </div>
+    <div style="text-align:center;margin-bottom:32px;">
+      <a href="${data.dashboardUrl}" style="display:inline-block;background:#0066CC;color:#fff;text-decoration:none;padding:14px 36px;border-radius:8px;font-size:15px;font-weight:600;">Go to Dashboard</a>
+    </div>
+    ${data.unsubscribeFooter}
+  </div>
+</body>
+</html>`,
+  };
+}
+
 /** Subscription expiry warning email (7-day advance notice). */
 export function buildSubscriptionExpiryEmail(data: {
   userName: string;

@@ -1,11 +1,13 @@
 import { enqueueBackgroundJob, drainQueuedJobs } from "@/lib/server/job-queue";
 import { claimDueAgentCycles } from "@/lib/services/agent-automation-service";
 import { claimDueReportSchedules } from "@/lib/services/report-automation-service";
+import { prisma } from "@/lib/db";
 
 export type WorkerPassResult = {
   queuedAgentCycles: number;
   queuedSchedules: number;
   processedJobs: number;
+  queuedEmailBatches: number;
 };
 
 export async function runWorkerPass(): Promise<WorkerPassResult> {
@@ -43,6 +45,16 @@ export async function runWorkerPass(): Promise<WorkerPassResult> {
     });
   }
 
+  // Enqueue outreach email batch if there are pending items due
+  const pendingEmailCount = await prisma.emailQueue.count({
+    where: { status: "pending", scheduledFor: { lte: new Date() } },
+  });
+  let queuedEmailBatches = 0;
+  if (pendingEmailCount > 0) {
+    await enqueueBackgroundJob({ name: "process-email-queue", payload: { batchSize: 20 } });
+    queuedEmailBatches = 1;
+  }
+
   const limit = Number(process.env.JOB_DRAIN_BATCH_SIZE ?? "10");
   const processedJobs = await drainQueuedJobs(Number.isFinite(limit) ? limit : 10);
 
@@ -50,5 +62,6 @@ export async function runWorkerPass(): Promise<WorkerPassResult> {
     queuedAgentCycles: dueAgentCycles.length,
     queuedSchedules: dueSchedules.length,
     processedJobs,
+    queuedEmailBatches,
   };
 }

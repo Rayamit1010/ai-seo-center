@@ -70,6 +70,19 @@ export async function requireSubscription(userId: string): Promise<SubscriptionW
     throw new PaymentRequiredError();
   }
 
+  // Enforce trial expiry: trialing + trialEndsAt in the past → expired
+  if (
+    subscription.status === "trialing" &&
+    subscription.trialEndsAt != null &&
+    subscription.trialEndsAt < new Date()
+  ) {
+    await prisma.subscription.update({
+      where: { id: subscription.id },
+      data: { status: "expired" },
+    });
+    throw new PaymentRequiredError();
+  }
+
   return subscription as unknown as SubscriptionWithPlan;
 }
 

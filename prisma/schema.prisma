@@ -14,9 +14,11 @@ model User {
   name            String?
   company         String?
   website         String?
-  role            String    @default("user")
-  emailVerified   Boolean   @default(false)
-  createdAt       DateTime  @default(now())
+  role                  String    @default("user")
+  emailVerified         Boolean   @default(false)
+  unsubscribeToken      String?   @unique
+  scheduledDeletionAt   DateTime?
+  createdAt             DateTime  @default(now())
   audits       Audit[]
   reports      Report[]
   reportSchedules ReportSchedule[]
@@ -506,6 +508,7 @@ model Subscription {
   currentPeriodEnd      DateTime
   cancelAtPeriodEnd     Boolean   @default(false)
   cancelledAt           DateTime?
+  trialEndsAt           DateTime?
   stripeSubscriptionId  String?   @unique
   stripeCustomerId      String?
   razorpaySubscriptionId String?  @unique

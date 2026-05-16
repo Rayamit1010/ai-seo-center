@@ -19,17 +19,22 @@ export async function GET(req: Request) {
   try {
     const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const now = new Date();
 
-    const [deletedEvents, deletedJobs] = await Promise.all([
-      // Purge old AI provider telemetry (90 days)
+    const [deletedEvents, deletedJobs, deletedUsers] = await Promise.all([
       prisma.aIProviderEvent.deleteMany({
         where: { createdAt: { lt: ninetyDaysAgo } },
       }),
-      // Purge completed/dead-letter jobs older than 30 days
       prisma.backgroundJob.deleteMany({
         where: {
           status: { in: ["completed", "dead_letter"] },
           updatedAt: { lt: thirtyDaysAgo },
+        },
+      }),
+      // Hard-delete accounts whose 30-day grace period has passed
+      prisma.user.deleteMany({
+        where: {
+          scheduledDeletionAt: { not: null, lte: now },
         },
       }),
     ]);
@@ -37,6 +42,7 @@ export async function GET(req: Request) {
     return ok({
       purgedAiEvents: deletedEvents.count,
       purgedOldJobs: deletedJobs.count,
+      deletedAccounts: deletedUsers.count,
     });
   } catch (error) {
     console.error("Purge cron error:", error);
