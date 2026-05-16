@@ -14,9 +14,12 @@ const addKeywordSchema = z.object({
   device: z.enum(["desktop", "mobile"]).default("desktop"),
 });
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const userId = await getRequiredUserId();
+    const { searchParams } = new URL(req.url);
+    const cursor = searchParams.get("cursor") ?? undefined;
+    const limit = Math.min(parseInt(searchParams.get("limit") ?? "50", 10), 200);
 
     const keywords = await prisma.trackedKeyword.findMany({
       where: { userId, isActive: true },
@@ -27,9 +30,15 @@ export async function GET() {
         },
       },
       orderBy: { createdAt: "desc" },
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
 
-    const rows = keywords.map((kw) => {
+    const hasMore = keywords.length > limit;
+    const page = hasMore ? keywords.slice(0, limit) : keywords;
+    const nextCursor = hasMore ? page[page.length - 1]?.id : null;
+
+    const rows = page.map((kw) => {
       const latest = kw.rankHistory[0] ?? null;
       return {
         id: kw.id,
@@ -46,7 +55,7 @@ export async function GET() {
       };
     });
 
-    return ok(rows);
+    return ok({ rows, nextCursor, hasMore });
   } catch (error) {
     if (isUnauthorizedApiError(error)) {
       return fail("Unauthorized", 401);

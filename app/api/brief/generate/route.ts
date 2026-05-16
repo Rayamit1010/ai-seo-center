@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import Anthropic from "@anthropic-ai/sdk";
 import { getRequiredUserId, isUnauthorizedApiError } from "@/lib/server/auth";
 import { assertTrustedOrigin, isInvalidOriginError } from "@/lib/server/csrf";
 import { checkRateLimit } from "@/lib/server/rate-limit";
 import { ok, fail } from "@/lib/server/response";
 import { prisma } from "@/lib/db";
+import { callClaudeJSON } from "@/lib/anthropic";
 import { BRIEF_SYSTEM_PROMPT, buildBriefPrompt, type BriefOutput } from "@/lib/prompts/brief-generator";
 
 export const dynamic = "force-dynamic";
@@ -51,19 +51,14 @@ export async function POST(req: Request) {
 
     const serpData = await fetchSerpData(data.keyword, data.country);
 
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-5-20250514",
-      max_tokens: 2000,
-      system: BRIEF_SYSTEM_PROMPT,
-      messages: [{ role: "user", content: buildBriefPrompt(data.keyword, data.country, serpData, "") }],
-    });
-
-    const rawText = response.content[0]?.type === "text" ? response.content[0].text : "";
     let parsed: BriefOutput;
     try {
-      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-      parsed = JSON.parse(jsonMatch ? jsonMatch[0] : rawText) as BriefOutput;
+      parsed = await callClaudeJSON<BriefOutput>(
+        BRIEF_SYSTEM_PROMPT,
+        buildBriefPrompt(data.keyword, data.country, serpData, ""),
+        2000,
+        { userId, task: "brief_generation", allowFallback: true }
+      );
     } catch {
       return fail("Brief generation failed — AI returned unexpected format", 500);
     }

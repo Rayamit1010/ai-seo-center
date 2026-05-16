@@ -57,11 +57,27 @@ export async function getPayPalAccessToken(): Promise<string> {
 function getPayPalPlanId(planSlug: PlanSlug, billingCycle: BillingCycle): string {
   const envMap: Record<string, string> = {
     "solo:monthly": process.env.PAYPAL_PLAN_SOLO_MONTHLY ?? "",
+    "solo:yearly": process.env.PAYPAL_PLAN_SOLO_YEARLY ?? "",
     "agency:monthly": process.env.PAYPAL_PLAN_AGENCY_MONTHLY ?? "",
+    "agency:yearly": process.env.PAYPAL_PLAN_AGENCY_YEARLY ?? "",
+    "white-label:monthly": process.env.PAYPAL_PLAN_WHITELABEL_MONTHLY ?? "",
+    "white-label:yearly": process.env.PAYPAL_PLAN_WHITELABEL_YEARLY ?? "",
   };
   const planId = envMap[`${planSlug}:${billingCycle}`];
   if (!planId) throw new Error(`PayPal plan ID not configured for ${planSlug}/${billingCycle}`);
   return planId;
+}
+
+function buildPayPalPlanIdToSlugMap(): Record<string, { slug: PlanSlug; cycle: BillingCycle }> {
+  const entries: Array<[string, { slug: PlanSlug; cycle: BillingCycle }]> = [
+    [process.env.PAYPAL_PLAN_SOLO_MONTHLY ?? "", { slug: "solo", cycle: "monthly" }],
+    [process.env.PAYPAL_PLAN_SOLO_YEARLY ?? "", { slug: "solo", cycle: "yearly" }],
+    [process.env.PAYPAL_PLAN_AGENCY_MONTHLY ?? "", { slug: "agency", cycle: "monthly" }],
+    [process.env.PAYPAL_PLAN_AGENCY_YEARLY ?? "", { slug: "agency", cycle: "yearly" }],
+    [process.env.PAYPAL_PLAN_WHITELABEL_MONTHLY ?? "", { slug: "white-label", cycle: "monthly" }],
+    [process.env.PAYPAL_PLAN_WHITELABEL_YEARLY ?? "", { slug: "white-label", cycle: "yearly" }],
+  ];
+  return Object.fromEntries(entries.filter(([id]) => id));
 }
 
 export interface PayPalSubscriptionResult {
@@ -255,19 +271,25 @@ async function processPayPalEvent(event: PayPalWebhookEvent): Promise<void> {
       const userId = resource.custom_id;
       if (!userId) break;
 
+      const { planId, billingCycle } = await resolvePlanFromPayPalPlanId(resource.plan_id ?? "");
+
       const now = new Date();
       const periodEnd = new Date(now);
-      periodEnd.setMonth(periodEnd.getMonth() + 1);
+      if (billingCycle === "yearly") {
+        periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+      } else {
+        periodEnd.setMonth(periodEnd.getMonth() + 1);
+      }
 
       await prisma.subscription.upsert({
         where: { paypalSubscriptionId: resource.id },
         create: {
           userId,
-          planId: await resolvePlanIdFromPayPalPlanId(resource.plan_id ?? ""),
+          planId,
           gateway: "paypal",
           status: "active",
           currency: "USD",
-          billingCycle: "monthly",
+          billingCycle,
           currentPeriodStart: now,
           currentPeriodEnd: periodEnd,
           paypalSubscriptionId: resource.id,
@@ -319,11 +341,21 @@ async function processPayPalEvent(event: PayPalWebhookEvent): Promise<void> {
   }
 }
 
-async function resolvePlanIdFromPayPalPlanId(_paypalPlanId: string): Promise<string> {
-  const plan = await prisma.plan.findFirst({
+async function resolvePlanFromPayPalPlanId(
+  paypalPlanId: string
+): Promise<{ planId: string; billingCycle: BillingCycle }> {
+  const planIdMap = buildPayPalPlanIdToSlugMap();
+  const match = planIdMap[paypalPlanId];
+
+  if (match) {
+    const plan = await prisma.plan.findFirst({ where: { slug: match.slug, isActive: true } });
+    if (plan) return { planId: plan.id, billingCycle: match.cycle };
+  }
+
+  const fallback = await prisma.plan.findFirst({
     where: { isActive: true },
     orderBy: { priceMonthlyUSD: "asc" },
   });
-  if (!plan) throw new Error("No active plans found");
-  return plan.id;
+  if (!fallback) throw new Error("No active plans found");
+  return { planId: fallback.id, billingCycle: "monthly" };
 }

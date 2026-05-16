@@ -439,9 +439,9 @@ model AIProviderEvent {
   errorMessage String?
   createdAt   DateTime @default(now())
 
-  @@index([userId, createdAt])
-  @@index([userId, providerId, createdAt])
-  @@index([userId, task, createdAt])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, providerId, createdAt(sort: Desc)])
+  @@index([userId, task, createdAt(sort: Desc)])
 }
 
 model BackgroundJob {

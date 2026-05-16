@@ -144,6 +144,63 @@ function getCooldownKey(userId: string | undefined, providerId: AIProviderId) {
   return `${userId ?? "global"}:${providerId}`;
 }
 
+function hasUpstashConfig() {
+  return Boolean(process.env.UPSTASH_REDIS_REST_URL) && Boolean(process.env.UPSTASH_REDIS_REST_TOKEN);
+}
+
+async function upstashGet(key: string): Promise<string | null> {
+  const url = process.env.UPSTASH_REDIS_REST_URL!;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN!;
+  try {
+    const res = await fetch(`${url}/get/${encodeURIComponent(key)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { result: string | null };
+    return data.result;
+  } catch {
+    return null;
+  }
+}
+
+async function upstashSetEx(key: string, value: string, ttlSeconds: number): Promise<void> {
+  const url = process.env.UPSTASH_REDIS_REST_URL!;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN!;
+  try {
+    await fetch(`${url}/set/${encodeURIComponent(key)}/${encodeURIComponent(value)}/ex/${ttlSeconds}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+  } catch {
+    // fire-and-forget: ignore errors
+  }
+}
+
+async function loadCooldownsFromRedis(userId: string | undefined): Promise<void> {
+  if (!hasUpstashConfig()) return;
+  const providerIds = Object.keys(PROVIDERS) as AIProviderId[];
+  await Promise.all(
+    providerIds.map(async (providerId) => {
+      const key = `cooldown:${getCooldownKey(userId, providerId)}`;
+      const val = await upstashGet(key);
+      if (val) {
+        const retryAt = parseInt(val, 10);
+        if (retryAt > Date.now()) {
+          providerCooldowns.set(getCooldownKey(userId, providerId), retryAt);
+        }
+      }
+    })
+  );
+}
+
+function persistCooldownToRedis(key: string, retryAt: number, cooldownMinutes: number): void {
+  if (!hasUpstashConfig()) return;
+  const ttlSeconds = Math.ceil(cooldownMinutes * 60);
+  void upstashSetEx(`cooldown:${key}`, String(retryAt), ttlSeconds);
+}
+
 function getMetricsKey(userId?: string) {
   return userId ?? "global";
 }
@@ -306,10 +363,10 @@ function markProviderCooldown(
   providerId: AIProviderId,
   cooldownMinutes: number
 ) {
-  providerCooldowns.set(
-    getCooldownKey(userId, providerId),
-    Date.now() + cooldownMinutes * 60_000
-  );
+  const key = getCooldownKey(userId, providerId);
+  const retryAt = Date.now() + cooldownMinutes * 60_000;
+  providerCooldowns.set(key, retryAt);
+  persistCooldownToRedis(key, retryAt, cooldownMinutes);
 }
 
 function normalizeProviderOrder(raw: string | null | undefined) {
@@ -377,6 +434,8 @@ function shouldFailover(error: unknown) {
 }
 
 async function resolveProviders(userId?: string): Promise<ProviderResolution> {
+  await loadCooldownsFromRedis(userId);
+
   const config = userId
     ? await prisma.agentConfig.findUnique({ where: { userId } })
     : null;

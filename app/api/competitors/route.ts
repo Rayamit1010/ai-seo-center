@@ -20,6 +20,7 @@ export async function GET() {
     const competitors = await prisma.competitorTracking.findMany({
       where: { userId },
       orderBy: { trackedSince: "desc" },
+      take: 100,
     });
     return ok(competitors);
   } catch (error) {

@@ -19,13 +19,22 @@ export async function POST(req: Request) {
       role: z.enum(["viewer", "admin"]).default("viewer"),
     }).parse(body);
 
-    const team = await prisma.team.findFirst({ where: { ownerId: userId } });
-    if (!team) {
-      const membership = await prisma.teamMember.findFirst({ where: { userId, role: "admin" } });
-      if (!membership) return fail("Only team owners or admins can invite members", 403);
-    }
+    const ownedTeam = await prisma.team.findFirst({ where: { ownerId: userId } });
+    let teamId: string;
+    let teamName: string;
 
-    const teamId = team?.id ?? (await prisma.teamMember.findFirst({ where: { userId, role: "admin" } }))!.teamId;
+    if (ownedTeam) {
+      teamId = ownedTeam.id;
+      teamName = ownedTeam.name;
+    } else {
+      const membership = await prisma.teamMember.findFirst({
+        where: { userId, role: "admin" },
+        include: { team: true },
+      });
+      if (!membership) return fail("Only team owners or admins can invite members", 403);
+      teamId = membership.teamId;
+      teamName = membership.team.name;
+    }
 
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const invite = await prisma.teamInvite.create({ data: { teamId, email, role, expiresAt } });
@@ -35,7 +44,7 @@ export async function POST(req: Request) {
     await resend.emails.send({
       from: "TGS SEO Center <noreply@techgeekstudio.com>",
       to: email,
-      subject: `You've been invited to join ${team?.name ?? "a team"} on TechGeekStudio SEO Center`,
+      subject: `You've been invited to join ${teamName} on TechGeekStudio SEO Center`,
       html: `<p>You've been invited to join as a <strong>${role}</strong>.</p>
 <p><a href="${appUrl}/team/invite/accept?token=${invite.token}" style="background:#6366f1;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block">Accept Invitation</a></p>
 <p>This invitation expires in 7 days.</p>`,

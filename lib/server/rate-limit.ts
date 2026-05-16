@@ -115,12 +115,12 @@ const upstashRateLimiter: RateLimitAdapter = {
 };
 
 function getRateLimitAdapter(): RateLimitAdapter {
-  const provider = process.env.RATE_LIMIT_PROVIDER?.toLowerCase();
   const hasUpstashConfig =
     Boolean(process.env.UPSTASH_REDIS_REST_URL) &&
     Boolean(process.env.UPSTASH_REDIS_REST_TOKEN);
+  const provider = process.env.RATE_LIMIT_PROVIDER?.toLowerCase();
 
-  if (provider === "upstash" && hasUpstashConfig) {
+  if (hasUpstashConfig && provider !== "memory") {
     return upstashRateLimiter;
   }
 
@@ -128,12 +128,12 @@ function getRateLimitAdapter(): RateLimitAdapter {
 }
 
 export function getRateLimitProvider() {
-  const provider = process.env.RATE_LIMIT_PROVIDER?.toLowerCase();
   const hasUpstashConfig =
     Boolean(process.env.UPSTASH_REDIS_REST_URL) &&
     Boolean(process.env.UPSTASH_REDIS_REST_TOKEN);
+  const provider = process.env.RATE_LIMIT_PROVIDER?.toLowerCase();
 
-  if (provider === "upstash" && hasUpstashConfig) {
+  if (hasUpstashConfig && provider !== "memory") {
     return "upstash";
   }
 
