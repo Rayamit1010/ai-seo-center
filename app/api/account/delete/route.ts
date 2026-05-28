@@ -16,7 +16,7 @@ export async function POST() {
     });
 
     return ok({ scheduledDeletionAt, graceDays: GRACE_DAYS });
-  } catch (error) {
+  } catch {
     return fail("Failed to schedule account deletion");
   }
 }
@@ -32,7 +32,7 @@ export async function DELETE() {
     });
 
     return ok({ cancelled: true });
-  } catch (error) {
+  } catch {
     return fail("Failed to cancel account deletion");
   }
 }

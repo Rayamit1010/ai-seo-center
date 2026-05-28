@@ -29,7 +29,7 @@ export async function GET() {
     });
 
     return ok(payments);
-  } catch (error) {
+  } catch {
     return fail("Failed to fetch payment history");
   }
 }
