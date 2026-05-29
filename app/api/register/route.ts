@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "crypto";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { assertTrustedOrigin, isInvalidOriginError } from "@/lib/server/csrf";
@@ -24,8 +25,15 @@ const registerSchema = z.object({
 export async function POST(req: Request) {
   try {
     assertTrustedOrigin(req);
-    const forwardedFor = req.headers.get("x-forwarded-for") || "unknown";
-    if (!(await checkRateLimit(`register:${forwardedFor}`, 5, 60_000))) {
+
+    // Prefer platform-verified header (Vercel sets this); fall back to first IP in chain
+    const ip =
+      req.headers.get("x-vercel-forwarded-for") ??
+      req.headers.get("x-forwarded-for")?.split(",")[0].trim();
+    if (!ip) {
+      return NextResponse.json({ error: "Unable to determine request origin." }, { status: 400 });
+    }
+    if (!(await checkRateLimit(`register:${ip}`, 5, 60_000))) {
       return NextResponse.json(
         { error: "Too many registration attempts. Please wait a minute." },
         { status: 429 }
@@ -38,10 +46,8 @@ export async function POST(req: Request) {
 
     const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existing) {
-      return NextResponse.json(
-        { error: "An account with this email already exists" },
-        { status: 409 }
-      );
+      // Return 200 with a generic message to avoid leaking whether the email is registered
+      return NextResponse.json({ success: true, requiresVerification: true });
     }
 
     const hashedPassword = await bcrypt.hash(data.password, 12);
@@ -57,11 +63,12 @@ export async function POST(req: Request) {
       },
     });
 
-    // Create verification token and send email (non-blocking — don't fail registration)
+    // Create a cryptographically secure verification token (not cuid)
     try {
       const token = await prisma.emailVerificationToken.create({
         data: {
           userId: user.id,
+          token: randomBytes(32).toString("hex"),
           expiresAt: new Date(Date.now() + VERIFICATION_EXPIRY_MS),
         },
       });
@@ -87,7 +94,6 @@ export async function POST(req: Request) {
         `,
       });
     } catch (emailError) {
-      // Email failure doesn't block account creation
       console.error("Verification email failed:", emailError);
     }
 
@@ -98,10 +104,7 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     if (isInvalidOriginError(error)) {
-      return NextResponse.json(
-        { error: "That request came from an unexpected origin." },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: "That request came from an unexpected origin." }, { status: 403 });
     }
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors[0].message }, { status: 400 });

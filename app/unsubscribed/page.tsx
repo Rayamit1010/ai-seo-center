@@ -1,14 +1,15 @@
 import Link from "next/link";
-import { Zap, MailX, CheckCircle, AlertCircle } from "lucide-react";
+import { Zap, CheckCircle, AlertCircle } from "lucide-react";
 
 export const metadata = { title: "Unsubscribed | TechGeekStudio SEO", robots: { index: false } };
 
-export default function UnsubscribedPage({
+export default async function UnsubscribedPage({
   searchParams,
 }: {
-  searchParams: { success?: string; error?: string };
+  searchParams: Promise<{ success?: string; error?: string }>;
 }) {
-  const success = searchParams.success === "1";
+  const { success } = await searchParams;
+  const isSuccess = success === "1";
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -18,13 +19,13 @@ export default function UnsubscribedPage({
           <span className="font-heading text-lg font-bold text-text-primary">TechGeekStudio SEO</span>
         </div>
 
-        {success ? (
+        {isSuccess ? (
           <>
             <CheckCircle className="mx-auto mb-4 h-14 w-14 text-emerald-400" />
             <h1 className="text-2xl font-bold text-text-primary">Unsubscribed</h1>
             <p className="mt-2 text-sm text-text-muted">
-              You've been removed from all marketing emails. Transactional emails (billing receipts,
-              password resets) will still be delivered.
+              You&apos;ve been removed from all marketing emails. Transactional emails (billing
+              receipts, password resets) will still be delivered.
             </p>
           </>
         ) : (

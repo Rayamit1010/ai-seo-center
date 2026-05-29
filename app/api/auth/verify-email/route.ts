@@ -3,7 +3,10 @@ import { prisma } from "@/lib/db";
 import { checkRateLimit } from "@/lib/server/rate-limit";
 
 export async function GET(req: Request) {
-  const ip = req.headers.get("x-forwarded-for") ?? "unknown";
+  const ip =
+    req.headers.get("x-vercel-forwarded-for") ??
+    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+    "unknown";
   if (!(await checkRateLimit(`verify-email:${ip}`, 20, 3_600_000))) {
     return NextResponse.redirect(new URL("/verify-email?error=failed", req.url));
   }

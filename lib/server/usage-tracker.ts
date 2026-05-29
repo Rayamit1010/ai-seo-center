@@ -24,28 +24,39 @@ export async function incrementAiUsage(userId: string): Promise<void> {
 
   const today = todayKey();
 
-  // 2. Use upsert + transaction to safely increment
-  const usage = await prisma.userUsage.upsert({
+  // Ensure the row exists before we lock it
+  await prisma.userUsage.upsert({
     where: { userId },
     create: { userId, aiCallsToday: 0, aiCallsTotal: 0, lastResetDate: new Date(today) },
     update: {},
   });
 
-  // Reset if it's a new day
-  const usageDate = usage.lastResetDate.toISOString().slice(0, 10);
-  const currentCount = usageDate === today ? usage.aiCallsToday : 0;
+  // Use SELECT FOR UPDATE inside a serialisable transaction to atomically
+  // check-and-increment, preventing two concurrent requests from both passing
+  // the quota gate before either has committed its increment.
+  await prisma.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<
+      Array<{ aiCallsToday: number; lastResetDate: Date }>
+    >`SELECT "aiCallsToday", "lastResetDate" FROM "UserUsage" WHERE "userId" = ${userId} FOR UPDATE`;
 
-  if (currentCount >= limit) {
-    throw new QuotaExceededError("aiCalls", currentCount, limit);
-  }
+    if (rows.length === 0) return;
 
-  await prisma.userUsage.update({
-    where: { userId },
-    data: {
-      aiCallsToday: usageDate === today ? { increment: 1 } : 1,
-      aiCallsTotal: { increment: 1 },
-      lastResetDate: usageDate === today ? undefined : new Date(today),
-    },
+    const { aiCallsToday, lastResetDate } = rows[0];
+    const usageDate = lastResetDate.toISOString().slice(0, 10);
+    const currentCount = usageDate === today ? aiCallsToday : 0;
+
+    if (currentCount >= limit) {
+      throw new QuotaExceededError("aiCalls", currentCount, limit);
+    }
+
+    await tx.userUsage.update({
+      where: { userId },
+      data: {
+        aiCallsToday: usageDate === today ? { increment: 1 } : 1,
+        aiCallsTotal: { increment: 1 },
+        lastResetDate: usageDate === today ? undefined : new Date(today),
+      },
+    });
   });
 }
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomBytes } from "crypto";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { assertTrustedOrigin, isInvalidOriginError } from "@/lib/server/csrf";
@@ -15,7 +16,10 @@ export async function POST(req: Request) {
   try {
     assertTrustedOrigin(req);
 
-    const ip = req.headers.get("x-forwarded-for") ?? "unknown";
+    const ip =
+      req.headers.get("x-vercel-forwarded-for") ??
+      req.headers.get("x-forwarded-for")?.split(",")[0].trim();
+    if (!ip) return NextResponse.json({ success: true }); // can't rate-limit → still succeed silently
     if (!(await checkRateLimit(`forgot-pw:${ip}`, 5, 15 * 60_000))) {
       return NextResponse.json({ success: true }); // silent rate limit — don't reveal
     }
@@ -34,9 +38,11 @@ export async function POST(req: Request) {
       where: { userId: user.id, usedAt: null },
     });
 
+    // Use cryptographically secure token instead of cuid()
     const token = await prisma.passwordResetToken.create({
       data: {
         userId: user.id,
+        token: randomBytes(32).toString("hex"),
         expiresAt: new Date(Date.now() + EXPIRY_MS),
       },
     });
@@ -71,7 +77,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
     }
     console.error("Forgot password error:", error);
-    // Still return success to prevent enumeration
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true }); // still return success to prevent enumeration
   }
 }

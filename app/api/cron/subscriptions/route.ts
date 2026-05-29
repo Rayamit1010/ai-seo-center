@@ -9,26 +9,24 @@ const APP_URL = process.env.NEXTAUTH_URL ?? "https://seoagent.techgeekstudio.com
 
 function isAuthorizedCronRequest(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
-  if (!secret) {
-    return process.env.NODE_ENV !== "production";
-  }
+  if (!secret) return process.env.NODE_ENV !== "production";
   return req.headers.get("authorization") === `Bearer ${secret}`;
 }
 
 export async function GET(req: Request) {
-  if (!isAuthorizedCronRequest(req)) {
-    return fail("Unauthorized", 401);
-  }
+  if (!isAuthorizedCronRequest(req)) return fail("Unauthorized", 401);
 
   try {
     const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const inSixDays = new Date(Date.now() + 6 * 24 * 60 * 60 * 1000);
 
-    // Find active subs expiring in the 6–7 day window (run daily → only fires once per sub)
+    // Only pick subscriptions where reminderSentAt is null — prevents duplicate
+    // emails when the cron fires more than once in the 6–7 day window.
     const expiring = await prisma.subscription.findMany({
       where: {
         status: "active",
         currentPeriodEnd: { gte: inSixDays, lte: sevenDaysFromNow },
+        reminderSentAt: null,
       },
       include: {
         user: { select: { email: true, name: true } },
@@ -51,10 +49,15 @@ export async function GET(req: Request) {
 
       try {
         await resend.emails.send({
-          from: `TechGeekStudio SEO <noreply@techgeekstudio.com>`,
+          from: "TechGeekStudio SEO <noreply@techgeekstudio.com>",
           to: sub.user.email,
           subject,
           html,
+        });
+        // Mark reminder as sent so it's not re-sent on subsequent cron runs
+        await prisma.subscription.update({
+          where: { id: sub.id },
+          data: { reminderSentAt: new Date() },
         });
         sent++;
       } catch (emailErr) {

@@ -1,11 +1,13 @@
 import { ok, fail } from "@/lib/server/response";
-import { getRequiredUserId } from "@/lib/server/auth";
+import { getRequiredUserId, isUnauthorizedApiError } from "@/lib/server/auth";
+import { assertTrustedOrigin, isInvalidOriginError } from "@/lib/server/csrf";
 import { prisma } from "@/lib/db";
 
 const GRACE_DAYS = 30;
 
-export async function POST() {
+export async function POST(req: Request) {
   try {
+    assertTrustedOrigin(req);
     const userId = await getRequiredUserId();
 
     const scheduledDeletionAt = new Date(Date.now() + GRACE_DAYS * 24 * 60 * 60 * 1000);
@@ -16,13 +18,16 @@ export async function POST() {
     });
 
     return ok({ scheduledDeletionAt, graceDays: GRACE_DAYS });
-  } catch {
+  } catch (error) {
+    if (isInvalidOriginError(error)) return fail("Forbidden", 403);
+    if (isUnauthorizedApiError(error)) return fail("Unauthorized", 401);
     return fail("Failed to schedule account deletion");
   }
 }
 
-export async function DELETE() {
+export async function DELETE(req: Request) {
   try {
+    assertTrustedOrigin(req);
     const userId = await getRequiredUserId();
 
     // Cancel a previously scheduled deletion
@@ -32,7 +37,9 @@ export async function DELETE() {
     });
 
     return ok({ cancelled: true });
-  } catch {
+  } catch (error) {
+    if (isInvalidOriginError(error)) return fail("Forbidden", 403);
+    if (isUnauthorizedApiError(error)) return fail("Unauthorized", 401);
     return fail("Failed to cancel account deletion");
   }
 }

@@ -109,7 +109,7 @@ export default function LandingPage() {
       <Script
         id="ld-software"
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026") }}
       />
       {/* ── Sticky Header ── */}
       <header className="sticky top-0 z-50 border-b border-border bg-surface">

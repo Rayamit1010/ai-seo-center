@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { checkRateLimit } from "@/lib/server/rate-limit";
 
 export async function GET(req: Request) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
+  if (!(await checkRateLimit(`unsub:${ip}`, 10, 60_000))) {
+    return NextResponse.redirect(new URL("/unsubscribed?error=rate-limited", req.url));
+  }
+
   const { searchParams } = new URL(req.url);
   const token = searchParams.get("token");
 

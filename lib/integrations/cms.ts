@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { decryptSecret } from "@/lib/crypto";
 import { normalizeUrl } from "@/lib/utils";
+import { assertSafeScrapeTarget } from "@/lib/scraper";
 import type { ProjectCmsPublishStatus, ProjectCmsProvider } from "@/lib/services/project-profile-service";
 
 export interface CmsPublishInput {
@@ -79,6 +80,7 @@ export async function inspectProjectCmsConnection(userId: string, projectId: str
     }
 
     try {
+      assertSafeScrapeTarget(cleanBaseUrl(config.cmsBaseUrl));
       const response = await fetch(`${cleanBaseUrl(config.cmsBaseUrl)}/wp-json`, {
         cache: "no-store",
         signal: AbortSignal.timeout(15_000),
@@ -117,6 +119,8 @@ async function publishToWordPress(config: Awaited<ReturnType<typeof getProjectCm
   if (!config.cmsBaseUrl || !config.cmsUsername || !config.cmsSecret) {
     throw new Error("WordPress publishing needs a base URL, username, and app password.");
   }
+
+  assertSafeScrapeTarget(cleanBaseUrl(config.cmsBaseUrl));
 
   const response = await fetch(`${cleanBaseUrl(config.cmsBaseUrl)}/wp-json/wp/v2/posts`, {
     method: "POST",

@@ -52,7 +52,7 @@ export default function PricingPage() {
       <Script
         id="ld-pricing"
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingJsonLd).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026") }}
       />
       {/* Header */}
       <div className="mb-12 text-center">

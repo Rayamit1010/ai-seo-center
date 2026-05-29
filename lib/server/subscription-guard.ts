@@ -43,8 +43,19 @@ export async function requireSubscription(userId: string): Promise<SubscriptionW
     return { ...ADMIN_SUBSCRIPTION, userId };
   }
 
+  // Include trialEndsAt check in the WHERE clause so the read and the gate
+  // are effectively atomic — no separate expiry update needed after the fact.
   const subscription = await prisma.subscription.findFirst({
-    where: { userId, status: { in: ["active", "trialing"] } },
+    where: {
+      userId,
+      OR: [
+        { status: "active" },
+        {
+          status: "trialing",
+          OR: [{ trialEndsAt: null }, { trialEndsAt: { gt: new Date() } }],
+        },
+      ],
+    },
     orderBy: { createdAt: "desc" },
     include: {
       plan: {
@@ -67,17 +78,9 @@ export async function requireSubscription(userId: string): Promise<SubscriptionW
   });
 
   if (!subscription) {
-    throw new PaymentRequiredError();
-  }
-
-  // Enforce trial expiry: trialing + trialEndsAt in the past → expired
-  if (
-    subscription.status === "trialing" &&
-    subscription.trialEndsAt != null &&
-    subscription.trialEndsAt < new Date()
-  ) {
-    await prisma.subscription.update({
-      where: { id: subscription.id },
+    // Background: expire any stale trialing subscriptions (non-blocking)
+    void prisma.subscription.updateMany({
+      where: { userId, status: "trialing", trialEndsAt: { lte: new Date() } },
       data: { status: "expired" },
     });
     throw new PaymentRequiredError();

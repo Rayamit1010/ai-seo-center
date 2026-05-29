@@ -509,6 +509,7 @@ model Subscription {
   cancelAtPeriodEnd     Boolean   @default(false)
   cancelledAt           DateTime?
   trialEndsAt           DateTime?
+  reminderSentAt        DateTime?
   stripeSubscriptionId  String?   @unique
   stripeCustomerId      String?
   razorpaySubscriptionId String?  @unique
@@ -604,6 +605,7 @@ model TrackedKeyword {
   checkFrequency String        @default("daily")
   isActive       Boolean       @default(true)
   lastCheckedAt  DateTime?
+  lastAlertSentAt DateTime?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)

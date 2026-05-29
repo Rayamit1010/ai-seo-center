@@ -26,15 +26,9 @@ function getAllowedOrigins(req: Request) {
     origins.add(origin);
   }
 
-  const forwardedProto = req.headers.get("x-forwarded-proto");
-  const forwardedHost = req.headers.get("x-forwarded-host");
-  const host = forwardedHost || req.headers.get("host");
-
-  if (host) {
-    origins.add(`${forwardedProto || "http"}://${host}`);
-    origins.add(`https://${host}`);
-    origins.add(`http://${host}`);
-  }
+  // Do NOT add origins from request headers (x-forwarded-host, host) — those are
+  // attacker-controllable in non-Vercel/custom-proxy deployments and would defeat CSRF
+  // protection. Only env-configured origins are trusted.
 
   return origins;
 }

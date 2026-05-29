@@ -19,7 +19,10 @@ export async function POST(req: Request) {
   try {
     assertTrustedOrigin(req);
 
-    const ip = req.headers.get("x-forwarded-for") ?? "unknown";
+    const ip =
+      req.headers.get("x-vercel-forwarded-for") ??
+      req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+      "unknown";
     if (!(await checkRateLimit(`reset-pw:${ip}`, 10, 60_000))) {
       return NextResponse.json({ error: "Too many attempts. Please wait." }, { status: 429 });
     }

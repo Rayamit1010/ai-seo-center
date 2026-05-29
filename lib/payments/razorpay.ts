@@ -1,5 +1,5 @@
 import Razorpay from "razorpay";
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/db";
 import type { BillingCycle, PlanSlug } from "./types";
 import { getResendClient } from "@/lib/resend";
@@ -145,22 +145,20 @@ export function verifyRazorpayPayment(
   if (!secret) throw new Error("RAZORPAY_KEY_SECRET is not configured");
 
   const payload = `${orderId}|${paymentId}`;
-  const expectedSignature = createHmac("sha256", secret)
-    .update(payload)
-    .digest("hex");
-
-  return expectedSignature === signature;
+  const expected = createHmac("sha256", secret).update(payload).digest();
+  const actual = Buffer.from(signature, "hex");
+  if (expected.length !== actual.length) return false;
+  return timingSafeEqual(expected, actual);
 }
 
 export function verifyRazorpayWebhookSignature(body: string, signature: string): boolean {
   const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
   if (!secret) throw new Error("RAZORPAY_WEBHOOK_SECRET is not configured");
 
-  const expectedSignature = createHmac("sha256", secret)
-    .update(body)
-    .digest("hex");
-
-  return expectedSignature === signature;
+  const expected = createHmac("sha256", secret).update(body).digest();
+  const actual = Buffer.from(signature, "hex");
+  if (expected.length !== actual.length) return false;
+  return timingSafeEqual(expected, actual);
 }
 
 export interface RazorpayWebhookPayload {
@@ -202,10 +200,15 @@ export async function handleRazorpayWebhook(
   }
 
   const data = JSON.parse(rawBody) as RazorpayWebhookPayload;
-  const eventId = `${data.event}:${Date.now()}`;
   const paymentEntity = data.payload.payment?.entity;
   const subscriptionEntity = data.payload.subscription?.entity;
-  const entityId = paymentEntity?.id ?? subscriptionEntity?.id ?? eventId;
+  // Use a deterministic entity ID — fall through to a required entity ID so we
+  // never accidentally make the idempotency key time-dependent (which allows replays).
+  const entityId = paymentEntity?.id ?? subscriptionEntity?.id;
+  if (!entityId) {
+    console.warn("Razorpay webhook missing entity id for event:", data.event);
+    return; // Cannot guarantee idempotency — skip rather than risk duplicate processing
+  }
   const idempotencyKey = `${data.event}:${entityId}`;
 
   const existing = await prisma.gatewayEvent.findUnique({
@@ -345,10 +348,12 @@ async function processRazorpayEvent(data: RazorpayWebhookPayload): Promise<void>
 
     case "payment.failed": {
       if (!payment) break;
+      const failedUserId = payment.notes?.userId;
+      if (!failedUserId) break; // Can't create a payment record without a valid userId FK
       await prisma.payment.upsert({
         where: { gatewayPaymentId: payment.id },
         create: {
-          userId: payment.notes?.userId ?? "unknown",
+          userId: failedUserId,
           gateway: "razorpay",
           gatewayPaymentId: payment.id,
           gatewayOrderId: payment.order_id,

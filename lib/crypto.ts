@@ -3,11 +3,20 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypt
 const ENCRYPTION_PREFIX = "enc:v1";
 
 function getEncryptionKey() {
-  const secret =
-    process.env.NEXTAUTH_SECRET ||
-    process.env.AUTH_SECRET ||
-    process.env.DATABASE_URL ||
-    "local-development-secret";
+  const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
+
+  // In production, refuse to start without a proper secret — prevents silently
+  // encrypting data with a known fallback that would expose all stored API keys.
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "NEXTAUTH_SECRET (or AUTH_SECRET) must be set in production. " +
+        "Refusing to encrypt/decrypt with a weak fallback."
+      );
+    }
+    // Dev/test: use a consistent local secret so encrypted values survive restarts
+    return createHash("sha256").update("local-dev-only-not-for-production").digest();
+  }
 
   return createHash("sha256").update(secret).digest();
 }
