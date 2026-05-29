@@ -5,24 +5,25 @@ import { getExternalDataSnapshot } from "@/lib/services/external-data-service";
 import { resolveProjectProfileByUrl } from "@/lib/services/project-profile-service";
 import { extractDomain } from "@/lib/utils";
 
-export async function listReports(userId: string) {
+export async function listReports(userId: string, limit = 50, cursor?: string) {
   const reports = await prisma.report.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
+    take: limit + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    // Omit 'content' from list — it can be megabytes; load it in the detail endpoint
     select: {
       id: true,
       title: true,
       type: true,
       auditId: true,
-      content: true,
       createdAt: true,
     },
   });
 
-  return reports.map((report) => ({
-    ...report,
-    content: parseReportContent(report.content),
-  }));
+  const hasMore = reports.length > limit;
+  const rows = hasMore ? reports.slice(0, limit) : reports;
+  return { rows, nextCursor: hasMore ? rows[rows.length - 1].id : null, hasMore };
 }
 
 export async function createReport(params: {

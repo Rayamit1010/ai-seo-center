@@ -8,7 +8,12 @@ async function main() {
 
   const user = await prisma.user.upsert({
     where: { email: "admin@techgeekstudio.com" },
-    update: {},
+    // Always (re)assert owner privileges — promotes the account even if it was
+    // first created via normal signup, so the superadmin never needs a subscription.
+    update: {
+      role: "admin",
+      emailVerified: true,
+    },
     create: {
       email: "admin@techgeekstudio.com",
       password: hashedPassword,
@@ -16,6 +21,7 @@ async function main() {
       company: "TechGeekStudio",
       website: "https://techgeekstudio.com",
       role: "admin",
+      emailVerified: true,
     },
   });
 

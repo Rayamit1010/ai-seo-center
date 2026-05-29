@@ -1,5 +1,6 @@
 import { PricingTable } from "@/components/billing/PricingTable";
 import Link from "next/link";
+import Script from "next/script";
 
 export const metadata = {
   title: "Pricing — TechGeekStudio SEO Center",
@@ -30,9 +31,29 @@ const FAQS = [
   },
 ];
 
+const pricingJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  name: "Pricing — TechGeekStudio SEO Center",
+  description: "Simple, transparent pricing for SEO professionals. Solo, Agency, and White-Label plans available.",
+  mainEntity: {
+    "@type": "ItemList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Solo Plan" },
+      { "@type": "ListItem", position: 2, name: "Agency Plan" },
+      { "@type": "ListItem", position: 3, name: "White-Label Plan" },
+    ],
+  },
+};
+
 export default function PricingPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-16">
+      <Script
+        id="ld-pricing"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingJsonLd).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026") }}
+      />
       {/* Header */}
       <div className="mb-12 text-center">
         <h1 className="text-4xl font-extrabold tracking-tight">

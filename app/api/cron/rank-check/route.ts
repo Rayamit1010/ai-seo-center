@@ -8,9 +8,10 @@ export const dynamic = "force-dynamic";
 function isAuthorizedCronRequest(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) {
+    // Fail closed in production — no secret means no access
     return process.env.NODE_ENV !== "production";
   }
-  return req.headers.get("x-cron-secret") === secret;
+  return req.headers.get("authorization") === `Bearer ${secret}`;
 }
 
 export async function GET(req: Request) {
@@ -22,7 +23,7 @@ export async function GET(req: Request) {
     // Fetch all active keywords grouped by userId
     const keywords = await prisma.trackedKeyword.findMany({
       where: { isActive: true },
-      select: { id: true, userId: true, keyword: true, targetDomain: true },
+      select: { id: true, userId: true, keyword: true, targetDomain: true, lastAlertSentAt: true },
     });
 
     if (keywords.length === 0) {
@@ -63,7 +64,10 @@ export async function GET(req: Request) {
           select: { keywordId: true, position: true, change: true },
         });
 
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
         const droppedKeywords: Array<{
+          id: string;
           keyword: string;
           domain: string;
           oldPos: number;
@@ -83,7 +87,11 @@ export async function GET(req: Request) {
           const kw = keywords.find((k) => k.id === after.keywordId);
 
           if (before?.position !== null && before?.position !== undefined && kw) {
+            // Skip if an alert was already sent within the last 7 days
+            if (kw.lastAlertSentAt && kw.lastAlertSentAt > sevenDaysAgo) continue;
+
             droppedKeywords.push({
+              id: kw.id,
               keyword: kw.keyword,
               domain: kw.targetDomain,
               oldPos: before.position,
@@ -138,6 +146,12 @@ export async function GET(req: Request) {
                   </table>
                   <p style="margin-top:16px">Log in to AI SEO Center to investigate and take action.</p>
                 `,
+              });
+
+              // Mark alerts sent so we don't re-alert within the next 7 days
+              await prisma.trackedKeyword.updateMany({
+                where: { id: { in: droppedKeywords.map((k) => k.id) } },
+                data: { lastAlertSentAt: new Date() },
               });
             } catch (emailError) {
               console.error("Failed to send rank drop alert email:", emailError);

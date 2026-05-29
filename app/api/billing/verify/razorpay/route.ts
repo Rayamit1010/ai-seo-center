@@ -2,17 +2,17 @@ import { z } from "zod";
 import { getRequiredUserId, isUnauthorizedApiError } from "@/lib/server/auth";
 import { assertTrustedOrigin, isInvalidOriginError } from "@/lib/server/csrf";
 import { ok, fail } from "@/lib/server/response";
-import { verifyRazorpayPayment } from "@/lib/payments/razorpay";
+import { verifyRazorpayPayment, getRazorpay } from "@/lib/payments/razorpay";
 import { prisma } from "@/lib/db";
-import type { PlanSlug, BillingCycle } from "@/lib/payments/types";
+import type { BillingCycle, PlanSlug } from "@/lib/payments/types";
 
 const schema = z.object({
   razorpay_order_id: z.string(),
   razorpay_payment_id: z.string(),
   razorpay_signature: z.string(),
-  planSlug: z.enum(["solo", "agency", "white-label"]),
-  billingCycle: z.enum(["monthly", "yearly"]).default("monthly"),
   currency: z.string().default("INR"),
+  // planSlug / billingCycle are intentionally NOT accepted from the client body —
+  // they are read from the server-side Razorpay order notes to prevent plan manipulation.
 });
 
 export async function POST(req: Request) {
@@ -23,24 +23,53 @@ export async function POST(req: Request) {
     const body = await req.json();
     const data = schema.parse(body);
 
+    // 1. Verify HMAC — proves the orderId+paymentId pair is authentic
     const isValid = verifyRazorpayPayment(
       data.razorpay_order_id,
       data.razorpay_payment_id,
       data.razorpay_signature
     );
+    if (!isValid) return fail("Payment verification failed — invalid signature", 400);
 
-    if (!isValid) {
-      return fail("Payment verification failed — invalid signature", 400);
+    // 2. Fetch authoritative order metadata from Razorpay server-side.
+    //    This is the ONLY source of truth for planSlug / billingCycle.
+    const razorpay = getRazorpay();
+    const order = await razorpay.orders.fetch(data.razorpay_order_id);
+    const notes = (order.notes ?? {}) as Record<string, string>;
+
+    const planSlug = notes.planSlug as PlanSlug | undefined;
+    const billingCycle = (notes.billingCycle ?? "monthly") as BillingCycle;
+    const orderUserId = notes.userId;
+
+    if (!planSlug) return fail("Order is missing plan metadata", 400);
+    if (orderUserId && orderUserId !== userId) return fail("Order does not belong to this user", 403);
+
+    // 3. Verify payment was actually captured
+    const payment = await razorpay.payments.fetch(data.razorpay_payment_id);
+    if (payment.status !== "captured") {
+      return fail(`Payment is not captured (status: ${payment.status})`, 400);
     }
 
-    const plan = await prisma.plan.findUnique({
-      where: { slug: data.planSlug as PlanSlug },
-    });
+    const plan = await prisma.plan.findUnique({ where: { slug: planSlug } });
     if (!plan) return fail("Plan not found", 404);
+
+    // 4. Verify the paid amount matches the expected plan price
+    const expectedAmount =
+      billingCycle === "yearly"
+        ? data.currency === "INR"
+          ? plan.priceYearlyINR * 100
+          : plan.priceYearlyUSD * 100
+        : data.currency === "INR"
+          ? plan.priceMonthlyINR * 100
+          : plan.priceMonthlyUSD * 100;
+
+    if (Number(payment.amount) < expectedAmount) {
+      console.error(`Razorpay amount mismatch: paid ${payment.amount}, expected ${expectedAmount}`);
+      return fail("Payment amount does not match plan price", 400);
+    }
 
     const now = new Date();
     const periodEnd = new Date(now);
-    const billingCycle = data.billingCycle as BillingCycle;
     periodEnd.setMonth(periodEnd.getMonth() + (billingCycle === "yearly" ? 12 : 1));
 
     const subscription = await prisma.subscription.upsert({
@@ -72,14 +101,7 @@ export async function POST(req: Request) {
         gateway: "razorpay",
         gatewayPaymentId: data.razorpay_payment_id,
         gatewayOrderId: data.razorpay_order_id,
-        amount:
-          billingCycle === "yearly"
-            ? data.currency === "INR"
-              ? plan.priceYearlyINR * 100
-              : plan.priceYearlyUSD * 100
-            : data.currency === "INR"
-              ? plan.priceMonthlyINR * 100
-              : plan.priceMonthlyUSD * 100,
+        amount: Number(payment.amount),
         currency: data.currency,
         status: "succeeded",
         paymentMethod: "razorpay",

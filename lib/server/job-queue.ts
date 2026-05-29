@@ -9,6 +9,42 @@ import {
   sendReportEmail,
 } from "@/lib/services/report-automation-service";
 import { bulkCheckRankings } from "@/lib/rank-tracker/dataforseo";
+import { sendOutreachEmail } from "@/lib/resend";
+
+async function processOutreachEmailQueue(batchSize: number) {
+  const now = new Date();
+  const emails = await prisma.emailQueue.findMany({
+    where: {
+      status: "pending",
+      scheduledFor: { lte: now },
+    },
+    take: batchSize,
+    include: { prospect: { select: { campaignId: true } } },
+  });
+
+  for (const email of emails) {
+    await prisma.emailQueue.update({ where: { id: email.id }, data: { status: "sending", attempts: { increment: 1 } } });
+    try {
+      const result = await sendOutreachEmail({
+        from: email.fromEmail,
+        to: email.toEmail,
+        subject: email.subject,
+        body: email.body,
+      });
+      await prisma.emailQueue.update({
+        where: { id: email.id },
+        data: { status: "sent", sentAt: new Date(), resendId: result.id ?? null },
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const isFinal = email.attempts + 1 >= email.maxAttempts;
+      await prisma.emailQueue.update({
+        where: { id: email.id },
+        data: { status: isFinal ? "failed" : "pending", errorMessage: msg },
+      });
+    }
+  }
+}
 
 export type ProcessAuditJob = {
   name: "process-audit";
@@ -68,12 +104,20 @@ export type RankCheckJob = {
   };
 };
 
+export type ProcessEmailQueueJob = {
+  name: "process-email-queue";
+  payload: {
+    batchSize?: number;
+  };
+};
+
 export type BackgroundJob =
   | ProcessAuditJob
   | SendReportEmailJob
   | RunReportScheduleJob
   | RunAgentCycleJob
-  | RankCheckJob;
+  | RankCheckJob
+  | ProcessEmailQueueJob;
 
 type QueueProvider = "database" | "memory" | "redis";
 
@@ -117,6 +161,7 @@ const JOB_LEASE_MS: Record<BackgroundJob["name"], number> = {
   "run-report-schedule": 15 * 60 * 1000,
   "run-agent-cycle": 20 * 60 * 1000,
   "rank-check": 10 * 60 * 1000,
+  "process-email-queue": 5 * 60 * 1000,
 };
 
 const JOB_MAX_ATTEMPTS: Record<BackgroundJob["name"], number> = {
@@ -125,6 +170,7 @@ const JOB_MAX_ATTEMPTS: Record<BackgroundJob["name"], number> = {
   "run-report-schedule": 1,
   "run-agent-cycle": 1,
   "rank-check": 2,
+  "process-email-queue": 3,
 };
 
 const globalForQueue = globalThis as unknown as {
@@ -235,6 +281,7 @@ function getRetryDelayMs(jobName: BackgroundJob["name"], attempts: number) {
     "run-report-schedule": [60_000, 5 * 60_000, 15 * 60_000],
     "run-agent-cycle": [0],
     "rank-check": [60_000, 5 * 60_000],
+    "process-email-queue": [30_000, 2 * 60_000, 5 * 60_000],
   };
 
   const delays = baseByJob[jobName];
@@ -259,6 +306,8 @@ function parsePersistedJob(jobName: string, payload: string): BackgroundJob {
       return { name: "run-agent-cycle", payload: parsedPayload as RunAgentCycleJob["payload"] };
     case "rank-check":
       return { name: "rank-check", payload: parsedPayload as RankCheckJob["payload"] };
+    case "process-email-queue":
+      return { name: "process-email-queue", payload: parsedPayload as ProcessEmailQueueJob["payload"] };
     default:
       throw new Error(`Unknown background job type: ${jobName}`);
   }
@@ -302,6 +351,9 @@ async function executeBackgroundJob(job: BackgroundJob) {
       return;
     case "rank-check":
       await bulkCheckRankings(job.payload.keywordIds);
+      return;
+    case "process-email-queue":
+      await processOutreachEmailQueue(job.payload.batchSize ?? 20);
       return;
   }
 }

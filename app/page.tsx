@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import Link from "next/link";
 import {
   Zap,
@@ -88,9 +89,28 @@ const PAYMENT_METHODS = [
   "Google Pay",
 ];
 
+const APP_URL = process.env.NEXTAUTH_URL ?? "https://seoagent.techgeekstudio.com";
+
+const softwareJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "TechGeekStudio SEO Command Center",
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web",
+  url: APP_URL,
+  description: "AI-powered SEO audit, keyword research, backlink strategy, rank tracking and content optimization platform.",
+  offers: { "@type": "AggregateOffer", priceCurrency: "USD", lowPrice: "0", offerCount: "3" },
+  author: { "@type": "Organization", name: "TechGeekStudio", url: "https://techgeekstudio.com" },
+};
+
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-text-primary">
+      <Script
+        id="ld-software"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026") }}
+      />
       {/* ── Sticky Header ── */}
       <header className="sticky top-0 z-50 border-b border-border bg-surface">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">

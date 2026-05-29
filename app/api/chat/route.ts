@@ -20,7 +20,7 @@ const chatSchema = z.object({
   message: z.string().trim().min(1, "Message is required").max(12000, "Message is too long"),
   sessionId: z.string().nullish(),
   provider: z
-    .enum(["claude", "chatgpt", "gemini", "grok", "groq"])
+    .enum(["claude", "chatgpt", "gemini", "grok", "groq", "openrouter"])
     .nullish(),
 });
 

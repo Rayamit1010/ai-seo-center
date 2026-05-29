@@ -38,11 +38,42 @@ function isBlockedHostname(hostname: string) {
   return false;
 }
 
-function assertSafeScrapeTarget(url: string) {
+export function assertSafeScrapeTarget(url: string) {
   const hostname = new URL(url).hostname;
   if (isBlockedHostname(hostname)) {
     throw new Error("Internal URLs are not allowed");
   }
+}
+
+const MAX_REDIRECTS = 5;
+
+/**
+ * fetch() wrapper that follows redirects manually so each hop can be validated
+ * against the SSRF blocklist. Using redirect:"follow" would silently follow a
+ * redirect from a public host to an internal IP.
+ */
+async function safeFetch(
+  url: string,
+  options: Omit<RequestInit, "redirect">
+): Promise<Response> {
+  let currentUrl = url;
+
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    const res = await fetch(currentUrl, { ...options, redirect: "manual" });
+
+    const isRedirect = res.status >= 300 && res.status < 400;
+    if (!isRedirect) return res;
+
+    const location = res.headers.get("location");
+    if (!location) return res; // redirect with no Location → return as-is
+
+    // Resolve relative Location headers against the current URL
+    const nextUrl = new URL(location, currentUrl).href;
+    assertSafeScrapeTarget(nextUrl); // SSRF check on every hop
+    currentUrl = nextUrl;
+  }
+
+  throw new Error("Too many redirects");
 }
 
 function assertHtmlResponse(response: Response) {
@@ -72,7 +103,7 @@ export async function scrapeUrl(targetUrl: string): Promise<ScrapedData> {
 
   const startTime = Date.now();
 
-  const response = await fetch(url, {
+  const response = await safeFetch(url, {
     headers: {
       "User-Agent":
         "Mozilla/5.0 (compatible; TechGeekStudioBot/1.0; +https://techgeekstudio.com)",
@@ -80,7 +111,6 @@ export async function scrapeUrl(targetUrl: string): Promise<ScrapedData> {
         "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       "Accept-Language": "en-US,en;q=0.5",
     },
-    redirect: "follow",
     signal: AbortSignal.timeout(15000),
   });
   assertHtmlResponse(response);

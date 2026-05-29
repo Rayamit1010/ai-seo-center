@@ -28,6 +28,7 @@ import {
   TrendingUp,
   BookOpen,
   Users,
+  Crosshair,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +41,7 @@ const navItems = [
   { href: "/technical", icon: Settings, label: "Technical" },
   { href: "/content", icon: FileText, label: "Content" },
   { href: "/briefs", icon: BookOpen, label: "Content Briefs" },
+  { href: "/competitors", icon: Crosshair, label: "Competitors" },
   { href: "/outreach", icon: Mail, label: "Outreach" },
   { href: "/agent", icon: Bot, label: "AI Agent" },
   { href: "/authority", icon: Trophy, label: "Authority" },

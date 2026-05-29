@@ -36,12 +36,20 @@ export async function sendOutreachEmail(params: {
   return { id: data!.id };
 }
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 /** Minimal HTML wrapper — outreach emails should look personal, not templated */
 function buildOutreachHtml(body: string): string {
   const paragraphs = body
     .split("\n")
     .filter((line) => line.trim())
-    .map((line) => `<p style="margin:0 0 10px;line-height:1.6;">${line}</p>`)
+    .map((line) => `<p style="margin:0 0 10px;line-height:1.6;">${escapeHtml(line)}</p>`)
     .join("\n");
 
   return `<!DOCTYPE html>

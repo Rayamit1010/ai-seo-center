@@ -105,10 +105,12 @@ export async function markAuditFailed(auditId: string) {
   });
 }
 
-export async function listAudits(userId: string) {
+export async function listAudits(userId: string, limit = 50, cursor?: string) {
   const audits = await prisma.audit.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
+    take: limit + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     select: {
       id: true,
       url: true,
@@ -121,10 +123,13 @@ export async function listAudits(userId: string) {
     },
   });
 
-  return audits.map((audit) => ({
-    ...audit,
-    scores: parseStoredJson(audit.scores, null),
-  }));
+  const hasMore = audits.length > limit;
+  const rows = hasMore ? audits.slice(0, limit) : audits;
+  return {
+    rows: rows.map((audit) => ({ ...audit, scores: parseStoredJson(audit.scores, null) })),
+    nextCursor: hasMore ? rows[rows.length - 1].id : null,
+    hasMore,
+  };
 }
 
 export async function getAuditDetails(userId: string, id: string) {

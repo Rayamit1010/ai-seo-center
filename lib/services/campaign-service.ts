@@ -7,23 +7,27 @@ type CampaignPatch = {
   status?: "active" | "paused" | "completed";
 };
 
-export async function listCampaigns(userId: string) {
+export async function listCampaigns(userId: string, limit = 50, cursor?: string) {
   const campaigns = await prisma.backlinkCampaign.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
-    include: {
-      _count: {
-        select: { prospects: true },
-      },
-    },
+    take: limit + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    include: { _count: { select: { prospects: true } } },
   });
 
-  return campaigns.map((campaign) => ({
-    ...campaign,
-    competitorUrls: parseStoredJson(campaign.competitorUrls, [] as string[]),
-    config: parseStoredJson(campaign.config, DEFAULT_PIPELINE_CONFIG),
-    prospectCount: campaign._count.prospects,
-  }));
+  const hasMore = campaigns.length > limit;
+  const rows = hasMore ? campaigns.slice(0, limit) : campaigns;
+  return {
+    rows: rows.map((campaign) => ({
+      ...campaign,
+      competitorUrls: parseStoredJson(campaign.competitorUrls, [] as string[]),
+      config: parseStoredJson(campaign.config, DEFAULT_PIPELINE_CONFIG),
+      prospectCount: campaign._count.prospects,
+    })),
+    nextCursor: hasMore ? rows[rows.length - 1].id : null,
+    hasMore,
+  };
 }
 
 export async function createCampaign(params: {

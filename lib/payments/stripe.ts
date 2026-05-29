@@ -2,6 +2,42 @@ import Stripe from "stripe";
 import { prisma } from "@/lib/db";
 import type { BillingCycle, PlanSlug } from "./types";
 import { getResendClient } from "@/lib/resend";
+import { buildSubscriptionConfirmationEmail } from "@/lib/email-templates-ops";
+import { getOrCreateUnsubscribeToken, unsubscribeFooter } from "@/lib/server/unsubscribe";
+
+async function sendSubscriptionConfirmation(
+  userId: string,
+  planName: string,
+  billingCycle: string,
+  amount: string,
+  currency: string,
+  periodEnd: Date
+) {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, name: true } });
+    if (!user?.email) return;
+    const token = await getOrCreateUnsubscribeToken(userId);
+    const APP_URL = process.env.NEXTAUTH_URL ?? "https://seoagent.techgeekstudio.com";
+    const { subject, html } = buildSubscriptionConfirmationEmail({
+      userName: user.name ?? "there",
+      planName,
+      billingCycle,
+      amount,
+      currency,
+      nextBillingDate: periodEnd,
+      dashboardUrl: `${APP_URL}/dashboard`,
+      unsubscribeFooter: unsubscribeFooter(token),
+    });
+    await getResendClient().emails.send({
+      from: "TechGeekStudio SEO <noreply@techgeekstudio.com>",
+      to: user.email,
+      subject,
+      html,
+    });
+  } catch (err) {
+    console.error("Subscription confirmation email failed:", err);
+  }
+}
 
 let stripeClient: Stripe | null = null;
 
@@ -222,6 +258,7 @@ async function processStripeEvent(stripe: Stripe, event: Stripe.Event): Promise<
           stripeCustomerId: typeof session.customer === "string" ? session.customer : null,
         },
       });
+      void sendSubscriptionConfirmation(userId, plan.name, billingCycle, "—", "USD", end);
       break;
     }
 

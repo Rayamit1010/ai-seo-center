@@ -7,7 +7,7 @@ import { encryptSecret } from "@/lib/crypto";
 import { getAISettingsSummary } from "@/lib/anthropic";
 import { assertTrustedOrigin, isInvalidOriginError } from "@/lib/server/csrf";
 
-const providerIdSchema = z.enum(["claude", "chatgpt", "gemini", "grok", "groq"]);
+const providerIdSchema = z.enum(["claude", "chatgpt", "gemini", "grok", "groq", "openrouter"]);
 
 const configUpdateSchema = z.object({
   fromEmail: z.string().optional(),
@@ -22,7 +22,7 @@ const configUpdateSchema = z.object({
   autoFollowUp: z.boolean().optional(),
   cycleIntervalMinutes: z.number().min(5).max(240).optional(),
   isEnabled: z.boolean().optional(),
-  providerOrder: z.array(providerIdSchema).length(5).optional(),
+  providerOrder: z.array(providerIdSchema).min(1).max(6).optional(),
   providerLoopEnabled: z.boolean().optional(),
   providerCooldownMins: z.number().min(1).max(120).optional(),
   chatgptApiKey: z.string().optional(),
@@ -30,11 +30,13 @@ const configUpdateSchema = z.object({
   geminiApiKey: z.string().optional(),
   grokApiKey: z.string().optional(),
   groqApiKey: z.string().optional(),
+  openrouterApiKey: z.string().optional(),
   chatgptModel: z.string().min(1).max(100).optional(),
   claudeModel: z.string().min(1).max(100).optional(),
   geminiModel: z.string().min(1).max(100).optional(),
   grokModel: z.string().min(1).max(100).optional(),
   groqModel: z.string().min(1).max(100).optional(),
+  openrouterModel: z.string().min(1).max(100).optional(),
 });
 
 function isGroqKey(value: string | undefined) {
@@ -144,11 +146,13 @@ export async function PUT(req: Request) {
     if (data.geminiApiKey !== undefined) updateData.geminiApiKeyEnc = data.geminiApiKey.trim() ? encryptSecret(data.geminiApiKey.trim()) : null;
     if (normalizedGrokApiKey !== undefined) updateData.grokApiKeyEnc = normalizedGrokApiKey.trim() ? encryptSecret(normalizedGrokApiKey.trim()) : null;
     if (normalizedGroqApiKey !== undefined) updateData.groqApiKeyEnc = normalizedGroqApiKey.trim() ? encryptSecret(normalizedGroqApiKey.trim()) : null;
+    if (data.openrouterApiKey !== undefined) updateData.openrouterApiKeyEnc = data.openrouterApiKey.trim() ? encryptSecret(data.openrouterApiKey.trim()) : null;
     if (data.chatgptModel !== undefined) updateData.chatgptModel = data.chatgptModel.trim();
     if (data.claudeModel !== undefined) updateData.claudeModel = data.claudeModel.trim();
     if (data.geminiModel !== undefined) updateData.geminiModel = data.geminiModel.trim();
     if (data.grokModel !== undefined) updateData.grokModel = data.grokModel.trim();
     if (data.groqModel !== undefined) updateData.groqModel = data.groqModel.trim();
+    if (data.openrouterModel !== undefined) updateData.openrouterModel = data.openrouterModel.trim();
 
     await prisma.agentConfig.upsert({
       where: { userId },

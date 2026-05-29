@@ -8,14 +8,17 @@ datasource db {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  password     String
-  name         String?
-  company      String?   @default("TechGeekStudio")
-  website      String?   @default("https://techgeekstudio.com")
-  role         String    @default("user")
-  createdAt    DateTime  @default(now())
+  id              String    @id @default(cuid())
+  email           String    @unique
+  password        String
+  name            String?
+  company         String?
+  website         String?
+  role                  String    @default("user")
+  emailVerified         Boolean   @default(false)
+  unsubscribeToken      String?   @unique
+  scheduledDeletionAt   DateTime?
+  createdAt             DateTime  @default(now())
   audits       Audit[]
   reports      Report[]
   reportSchedules ReportSchedule[]
@@ -35,8 +38,13 @@ model User {
   trackedKeywords    TrackedKeyword[]
   keywordResearches  KeywordResearch2[]
   contentBriefs      ContentBrief[]
+  contentDrafts      ContentDraft[]
+  notifications      Notification[]
+  competitors        CompetitorTracking[]
   ownedTeams         Team[]           @relation("TeamOwner")
   teamMemberships    TeamMember[]
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
 }
 
 model Audit {
@@ -382,7 +390,7 @@ model AgentConfig {
   blockedDomains  String   @default("[]") // JSON: string[]
 
   // AI orchestration
-  providerOrder         String   @default("[\"groq\",\"grok\",\"gemini\",\"claude\",\"chatgpt\"]")
+  providerOrder         String   @default("[\"groq\",\"grok\",\"gemini\",\"claude\",\"chatgpt\",\"openrouter\"]")
   providerLoopEnabled   Boolean  @default(true)
   providerCooldownMins  Int      @default(15)
   chatgptApiKeyEnc      String?
@@ -390,11 +398,13 @@ model AgentConfig {
   geminiApiKeyEnc       String?
   grokApiKeyEnc         String?
   groqApiKeyEnc         String?
+  openrouterApiKeyEnc   String?
   chatgptModel          String   @default("gpt-4o")
   claudeModel           String   @default("claude-sonnet-4-5-20250514")
   geminiModel           String   @default("gemini-2.5-flash")
   grokModel             String   @default("grok-4-1-fast-reasoning")
   groqModel             String   @default("llama-3.3-70b-versatile")
+  openrouterModel       String   @default("openai/gpt-4o")
 
   // Automation toggles
   autoDiscover    Boolean  @default(true)
@@ -431,9 +441,9 @@ model AIProviderEvent {
   errorMessage String?
   createdAt   DateTime @default(now())
 
-  @@index([userId, createdAt])
-  @@index([userId, providerId, createdAt])
-  @@index([userId, task, createdAt])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, providerId, createdAt(sort: Desc)])
+  @@index([userId, task, createdAt(sort: Desc)])
 }
 
 model BackgroundJob {
@@ -498,6 +508,8 @@ model Subscription {
   currentPeriodEnd      DateTime
   cancelAtPeriodEnd     Boolean   @default(false)
   cancelledAt           DateTime?
+  trialEndsAt           DateTime?
+  reminderSentAt        DateTime?
   stripeSubscriptionId  String?   @unique
   stripeCustomerId      String?
   razorpaySubscriptionId String?  @unique
@@ -593,6 +605,7 @@ model TrackedKeyword {
   checkFrequency String        @default("daily")
   isActive       Boolean       @default(true)
   lastCheckedAt  DateTime?
+  lastAlertSentAt DateTime?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -655,7 +668,8 @@ model ContentBrief {
   status       String   @default("draft")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  drafts       ContentDraft[]
 
   @@index([userId, createdAt(sort: Desc)])
 }
@@ -699,4 +713,93 @@ model TeamInvite {
   team       Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@index([token])
+}
+
+// ═══════════════════════════════════════════════════════
+// V2: Notifications
+// ═══════════════════════════════════════════════════════
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // rank_drop | audit_complete | invite | system | content
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  url       String?
+  data      String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read, createdAt(sort: Desc)])
+}
+
+// ═══════════════════════════════════════════════════════
+// V2: Full Article / Content Drafts
+// ═══════════════════════════════════════════════════════
+
+model ContentDraft {
+  id        String   @id @default(cuid())
+  userId    String
+  briefId   String?
+  keyword   String
+  title     String
+  content   String
+  metaTitle String?
+  metaDesc  String?
+  wordCount Int      @default(0)
+  tone      String   @default("professional")
+  status    String   @default("draft")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brief     ContentBrief? @relation(fields: [briefId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+// ═══════════════════════════════════════════════════════
+// V2: Competitor Tracking
+// ═══════════════════════════════════════════════════════
+
+model CompetitorTracking {
+  id           String   @id @default(cuid())
+  userId       String
+  projectId    String?
+  domain       String
+  name         String?
+  notes        String?
+  trackedSince DateTime @default(now())
+  lastChecked  DateTime?
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@unique([userId, domain])
+}
+
+// ═══════════════════════════════════════════════════════
+// Auth: Password Reset & Email Verification Tokens
+// ═══════════════════════════════════════════════════════
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique @default(cuid())
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique @default(cuid())
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

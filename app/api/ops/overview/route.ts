@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { getAIHealthSummary } from "@/lib/anthropic";
 import { summarizeError } from "@/lib/errors";
-import { getRequiredUserId, isUnauthorizedApiError } from "@/lib/server/auth";
+import { getRequiredUserId, isUnauthorizedApiError, isAdminUser } from "@/lib/server/auth";
 import { getJobQueueStatus } from "@/lib/server/job-queue";
 import { logRouteTiming, measureStep } from "@/lib/server/observability";
 import { getRateLimitProvider } from "@/lib/server/rate-limit";
@@ -11,6 +11,10 @@ export async function GET() {
   const startedAt = performance.now();
   try {
     const userId = await getRequiredUserId();
+
+    if (!(await isAdminUser(userId))) {
+      return fail("Forbidden", 403);
+    }
 
     const timedQueries = await Promise.all([
       measureStep("ai-health", () => getAIHealthSummary(userId)),

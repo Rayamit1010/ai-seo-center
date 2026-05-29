@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/db";
 import { decryptSecret, maskSecret } from "@/lib/crypto";
 
-export type AIProviderId = "claude" | "chatgpt" | "gemini" | "grok" | "groq";
+export type AIProviderId = "claude" | "chatgpt" | "gemini" | "grok" | "groq" | "openrouter";
 
 export interface AIRequestOptions {
   userId?: string;
@@ -57,6 +57,7 @@ const DEFAULT_PROVIDER_ORDER: AIProviderId[] = [
   "gemini",
   "claude",
   "chatgpt",
+  "openrouter",
 ];
 
 const PROVIDERS: Record<AIProviderId, ProviderDefinition> = {
@@ -109,6 +110,19 @@ const PROVIDERS: Record<AIProviderId, ProviderDefinition> = {
     tokenField: "max_completion_tokens",
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
   },
+  openrouter: {
+    id: "openrouter",
+    name: "OpenRouter",
+    transport: "openai",
+    url: "https://openrouter.ai/api/v1/chat/completions",
+    envKey: process.env.OPENROUTER_API_KEY,
+    defaultModel: "openai/gpt-4o",
+    authHeader: (key) => ({
+      Authorization: `Bearer ${key}`,
+      "HTTP-Referer": "https://techgeekstudio.com",
+      "X-Title": "TechGeekStudio SEO Center",
+    }),
+  },
 };
 
 const globalForAi = globalThis as unknown as {
@@ -128,6 +142,63 @@ if (process.env.NODE_ENV !== "production") {
 
 function getCooldownKey(userId: string | undefined, providerId: AIProviderId) {
   return `${userId ?? "global"}:${providerId}`;
+}
+
+function hasUpstashConfig() {
+  return Boolean(process.env.UPSTASH_REDIS_REST_URL) && Boolean(process.env.UPSTASH_REDIS_REST_TOKEN);
+}
+
+async function upstashGet(key: string): Promise<string | null> {
+  const url = process.env.UPSTASH_REDIS_REST_URL!;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN!;
+  try {
+    const res = await fetch(`${url}/get/${encodeURIComponent(key)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { result: string | null };
+    return data.result;
+  } catch {
+    return null;
+  }
+}
+
+async function upstashSetEx(key: string, value: string, ttlSeconds: number): Promise<void> {
+  const url = process.env.UPSTASH_REDIS_REST_URL!;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN!;
+  try {
+    await fetch(`${url}/set/${encodeURIComponent(key)}/${encodeURIComponent(value)}/ex/${ttlSeconds}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+  } catch {
+    // fire-and-forget: ignore errors
+  }
+}
+
+async function loadCooldownsFromRedis(userId: string | undefined): Promise<void> {
+  if (!hasUpstashConfig()) return;
+  const providerIds = Object.keys(PROVIDERS) as AIProviderId[];
+  await Promise.all(
+    providerIds.map(async (providerId) => {
+      const key = `cooldown:${getCooldownKey(userId, providerId)}`;
+      const val = await upstashGet(key);
+      if (val) {
+        const retryAt = parseInt(val, 10);
+        if (retryAt > Date.now()) {
+          providerCooldowns.set(getCooldownKey(userId, providerId), retryAt);
+        }
+      }
+    })
+  );
+}
+
+function persistCooldownToRedis(key: string, retryAt: number, cooldownMinutes: number): void {
+  if (!hasUpstashConfig()) return;
+  const ttlSeconds = Math.ceil(cooldownMinutes * 60);
+  void upstashSetEx(`cooldown:${key}`, String(retryAt), ttlSeconds);
 }
 
 function getMetricsKey(userId?: string) {
@@ -162,6 +233,7 @@ function getMetricsBucket(userId?: string) {
     gemini: getEmptyMetrics(),
     grok: getEmptyMetrics(),
     groq: getEmptyMetrics(),
+    openrouter: getEmptyMetrics(),
   } satisfies Record<AIProviderId, ProviderMetrics>;
 
   providerMetrics.set(key, fresh);
@@ -291,10 +363,10 @@ function markProviderCooldown(
   providerId: AIProviderId,
   cooldownMinutes: number
 ) {
-  providerCooldowns.set(
-    getCooldownKey(userId, providerId),
-    Date.now() + cooldownMinutes * 60_000
-  );
+  const key = getCooldownKey(userId, providerId);
+  const retryAt = Date.now() + cooldownMinutes * 60_000;
+  providerCooldowns.set(key, retryAt);
+  persistCooldownToRedis(key, retryAt, cooldownMinutes);
 }
 
 function normalizeProviderOrder(raw: string | null | undefined) {
@@ -304,11 +376,15 @@ function normalizeProviderOrder(raw: string | null | undefined) {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return DEFAULT_PROVIDER_ORDER;
 
-    const legacyDefaultOrder = ["claude", "chatgpt", "gemini", "grok"];
-    if (
-      parsed.length === legacyDefaultOrder.length &&
-      parsed.every((value, index) => value === legacyDefaultOrder[index])
-    ) {
+    const legacyDefaultOrders = [
+      ["claude", "chatgpt", "gemini", "grok"],
+      ["groq", "grok", "gemini", "claude", "chatgpt"],
+    ];
+    if (legacyDefaultOrders.some(
+      (legacy) =>
+        parsed.length === legacy.length &&
+        parsed.every((value: unknown, index: number) => value === legacy[index])
+    )) {
       return DEFAULT_PROVIDER_ORDER;
     }
 
@@ -358,6 +434,8 @@ function shouldFailover(error: unknown) {
 }
 
 async function resolveProviders(userId?: string): Promise<ProviderResolution> {
+  await loadCooldownsFromRedis(userId);
+
   const config = userId
     ? await prisma.agentConfig.findUnique({ where: { userId } })
     : null;
@@ -371,6 +449,7 @@ async function resolveProviders(userId?: string): Promise<ProviderResolution> {
     gemini: decryptSecret(config?.geminiApiKeyEnc),
     grok: decryptSecret(config?.grokApiKeyEnc),
     groq: decryptSecret(config?.groqApiKeyEnc),
+    openrouter: decryptSecret(config?.openrouterApiKeyEnc),
   } satisfies Record<AIProviderId, string | undefined>;
 
   const modelOverrides = {
@@ -379,6 +458,7 @@ async function resolveProviders(userId?: string): Promise<ProviderResolution> {
     gemini: config?.geminiModel,
     grok: config?.grokModel,
     groq: config?.groqModel,
+    openrouter: config?.openrouterModel,
   } satisfies Record<AIProviderId, string | null | undefined>;
 
   const providers = Object.fromEntries(
