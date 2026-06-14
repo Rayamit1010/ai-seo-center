@@ -3,7 +3,13 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 
-if (!process.env.NEXTAUTH_SECRET && !process.env.AUTH_SECRET) {
+// `next build` evaluates route modules with NODE_ENV=production while collecting
+// page data, but env vars like NEXTAUTH_SECRET may not be present at build time
+// (e.g. Preview deployments). Only enforce the secret at runtime, not during the
+// build phase, so a missing secret fails the request rather than the build.
+const isNextBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
+
+if (!isNextBuildPhase && !process.env.NEXTAUTH_SECRET && !process.env.AUTH_SECRET) {
   if (process.env.NODE_ENV === "production") {
     throw new Error(
       "NEXTAUTH_SECRET (or AUTH_SECRET) must be set. " +
