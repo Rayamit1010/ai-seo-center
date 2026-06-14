@@ -29,6 +29,7 @@ import {
   BookOpen,
   Users,
   Crosshair,
+  Radar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +40,7 @@ const navItems = [
   { href: "/rank-tracker", icon: TrendingUp, label: "Rank Tracker" },
   { href: "/backlinks", icon: LinkIcon, label: "Backlinks" },
   { href: "/technical", icon: Settings, label: "Technical" },
+  { href: "/monitoring", icon: Radar, label: "Monitoring" },
   { href: "/content", icon: FileText, label: "Content" },
   { href: "/briefs", icon: BookOpen, label: "Content Briefs" },
   { href: "/competitors", icon: Crosshair, label: "Competitors" },
