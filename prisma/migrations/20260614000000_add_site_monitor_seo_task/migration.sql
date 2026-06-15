@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS "SeoTask" (
 ALTER TABLE "Audit" ADD COLUMN IF NOT EXISTS "monitorId" TEXT;
 
 CREATE INDEX IF NOT EXISTS "SiteMonitor_userId_createdAt_idx" ON "SiteMonitor"("userId", "createdAt" DESC);
-CREATE INDEX IF NOT EXISTS "SiteMonitor_isActive_nextRunAt_idx" ON "SiteMonitor"("isActive", "nextRunAt");
+CREATE INDEX IF NOT EXISTS "SiteMonitor_isActive_nextRunAt_leaseUntil_idx" ON "SiteMonitor"("isActive", "nextRunAt", "leaseUntil");
 
 CREATE UNIQUE INDEX IF NOT EXISTS "SeoTask_monitorId_action_key" ON "SeoTask"("monitorId", "action");
 CREATE INDEX IF NOT EXISTS "SeoTask_userId_status_severity_idx" ON "SeoTask"("userId", "status", "severity");

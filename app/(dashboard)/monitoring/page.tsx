@@ -87,9 +87,12 @@ export default function MonitoringPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: !monitor.isActive }),
       });
-      const json = (await res.json()) as { success?: boolean };
-      if (json.success) {
-        setMonitors((prev) => prev.map((m) => (m.id === monitor.id ? { ...m, isActive: !m.isActive } : m)));
+      const json = (await res.json()) as { success?: boolean; data?: MonitorRow; error?: string };
+      if (res.ok && json.success && json.data) {
+        const updated = json.data;
+        setMonitors((prev) => prev.map((m) => (m.id === monitor.id ? { ...m, isActive: updated.isActive } : m)));
+      } else {
+        toast.error(json.error ?? "Failed to update monitor");
       }
     } catch {
       toast.error("Failed to update monitor");
@@ -99,9 +102,12 @@ export default function MonitoringPage() {
   const handleDelete = async (id: string) => {
     try {
       const res = await fetch(`/api/monitoring/${id}`, { method: "DELETE" });
-      if (res.ok) {
+      const json = (await res.json()) as { success?: boolean; error?: string };
+      if (res.ok && json.success) {
         setMonitors((prev) => prev.filter((m) => m.id !== id));
         toast.success("Monitor removed");
+      } else {
+        toast.error(json.error ?? "Failed to remove monitor");
       }
     } catch {
       toast.error("Failed to remove monitor");

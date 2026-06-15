@@ -832,7 +832,7 @@ model SiteMonitor {
   tasks           SeoTask[]
 
   @@index([userId, createdAt(sort: Desc)])
-  @@index([isActive, nextRunAt])
+  @@index([isActive, nextRunAt, leaseUntil])
 }
 
 model SeoTask {

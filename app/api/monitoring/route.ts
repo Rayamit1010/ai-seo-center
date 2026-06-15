@@ -42,6 +42,9 @@ export async function POST(req: Request) {
     if (isUnauthorizedApiError(error)) {
       return fail("Unauthorized", 401);
     }
+    if (error instanceof SyntaxError) {
+      return fail("Invalid JSON body.", 400);
+    }
     if (error instanceof z.ZodError) {
       return fail(error.errors[0]?.message ?? "Invalid input.", 400);
     }

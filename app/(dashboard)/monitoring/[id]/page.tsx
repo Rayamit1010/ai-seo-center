@@ -85,8 +85,13 @@ export default function MonitorDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: !monitor.isActive }),
       });
-      const json = (await res.json()) as { success?: boolean };
-      if (json.success) setMonitor((prev) => (prev ? { ...prev, isActive: !prev.isActive } : prev));
+      const json = (await res.json()) as { success?: boolean; data?: MonitorDetails; error?: string };
+      if (res.ok && json.success && json.data) {
+        const isActive = json.data.isActive;
+        setMonitor((prev) => (prev ? { ...prev, isActive } : prev));
+      } else {
+        toast.error(json.error ?? "Failed to update monitor");
+      }
     } catch {
       toast.error("Failed to update monitor");
     }
@@ -96,9 +101,12 @@ export default function MonitorDetailPage() {
     if (!monitor) return;
     try {
       const res = await fetch(`/api/monitoring/${monitor.id}`, { method: "DELETE" });
-      if (res.ok) {
+      const json = (await res.json()) as { success?: boolean; error?: string };
+      if (res.ok && json.success) {
         toast.success("Monitor removed");
         router.push("/monitoring");
+      } else {
+        toast.error(json.error ?? "Failed to remove monitor");
       }
     } catch {
       toast.error("Failed to remove monitor");
@@ -112,11 +120,14 @@ export default function MonitorDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
-      const json = (await res.json()) as { success?: boolean };
-      if (json.success) {
+      const json = (await res.json()) as { success?: boolean; data?: SeoTask; error?: string };
+      if (res.ok && json.success && json.data) {
+        const updatedStatus = json.data.status;
         setMonitor((prev) =>
-          prev ? { ...prev, tasks: prev.tasks.map((t) => (t.id === taskId ? { ...t, status } : t)) } : prev
+          prev ? { ...prev, tasks: prev.tasks.map((t) => (t.id === taskId ? { ...t, status: updatedStatus } : t)) } : prev
         );
+      } else {
+        toast.error(json.error ?? "Failed to update task");
       }
     } catch {
       toast.error("Failed to update task");

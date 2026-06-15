@@ -257,10 +257,12 @@ export async function syncTasksForAudit(auditId: string) {
   }
 
   // Auto-resolve open tasks whose finding no longer appears
-  await prisma.seoTask.updateMany({
-    where: { monitorId: audit.monitorId, status: "open", action: { notIn: Array.from(seenActions) } },
-    data: { status: "resolved", resolvedAt: new Date() },
-  });
+  if (seenActions.size > 0) {
+    await prisma.seoTask.updateMany({
+      where: { monitorId: audit.monitorId, status: "open", action: { notIn: Array.from(seenActions) } },
+      data: { status: "resolved", resolvedAt: new Date() },
+    });
+  }
 
   await maybeSendMonitorAlert(audit.monitorId, audit.id);
 }
