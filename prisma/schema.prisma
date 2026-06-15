@@ -45,6 +45,8 @@ model User {
   teamMemberships    TeamMember[]
   passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
+  siteMonitors       SiteMonitor[]
+  seoTasks           SeoTask[]
 }
 
 model Audit {
@@ -69,9 +71,13 @@ model Audit {
   updatedAt     DateTime  @updatedAt
   reports       Report[]
   reportSchedules ReportSchedule[]
+  monitorId     String?
+  monitor       SiteMonitor? @relation(fields: [monitorId], references: [id], onDelete: SetNull)
+  seoTasks      SeoTask[]
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([userId, status, createdAt(sort: Desc)])
+  @@index([monitorId, createdAt(sort: Desc)])
 }
 
 model Report {
@@ -802,4 +808,54 @@ model EmailVerificationToken {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ═══════════════════════════════════════════════════════
+// Continuous Technical SEO Monitoring & Auto-Tasks
+// ═══════════════════════════════════════════════════════
+
+model SiteMonitor {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  url             String
+  frequency       String    @default("weekly") // daily | weekly
+  isActive        Boolean   @default(true)
+  nextRunAt       DateTime  @default(now())
+  lastRunAt       DateTime?
+  leaseUntil      DateTime?
+  lastAlertSentAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  audits          Audit[]
+  tasks           SeoTask[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([isActive, nextRunAt, leaseUntil])
+}
+
+model SeoTask {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  monitorId   String
+  monitor     SiteMonitor @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  auditId     String?
+  audit       Audit?      @relation(fields: [auditId], references: [id], onDelete: SetNull)
+  action      String
+  module      String      // onpage | technical | offpage | keywords
+  impact      String      // high | medium | low
+  effort      String      // low | medium | high
+  severity    String      // critical | high | medium | longTerm
+  status      String      @default("open") // open | resolved | dismissed
+  firstSeenAt DateTime    @default(now())
+  lastSeenAt  DateTime    @default(now())
+  resolvedAt  DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([monitorId, action])
+  @@index([userId, status, severity])
+  @@index([monitorId, status])
 }

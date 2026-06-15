@@ -5,6 +5,7 @@ import { buildAuditPrompt } from "@/lib/prompts/audit";
 import { buildAuditContext } from "@/lib/seo-analyzer";
 import { parseHtml, scrapeUrl } from "@/lib/scraper";
 import { parseStoredJson } from "@/lib/server/response";
+import { syncTasksForAudit } from "@/lib/services/monitor-service";
 import type { FullAuditResult, ScrapedData } from "@/types";
 
 export async function createAuditJob(params: {
@@ -93,6 +94,10 @@ export async function processAuditJob(
       summary: result.summary,
       status: "COMPLETE",
     },
+  });
+
+  await syncTasksForAudit(auditId).catch((error) => {
+    console.error(`Failed to sync SEO tasks for audit ${auditId}:`, error);
   });
 }
 

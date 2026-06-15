@@ -12,11 +12,15 @@
     },
     {
       "path": "/api/cron/worker",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 5 * * *"
     },
     {
       "path": "/api/cron/purge",
       "schedule": "0 2 * * 0"
+    },
+    {
+      "path": "/api/cron/site-monitor",
+      "schedule": "0 4 * * *"
     }
   ]
 }

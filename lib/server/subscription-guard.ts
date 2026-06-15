@@ -91,7 +91,7 @@ export async function requireSubscription(userId: string): Promise<SubscriptionW
 
 export async function checkFeatureLimit(
   userId: string,
-  feature: "projects" | "keywords" | "teamMembers" | "aiCalls"
+  feature: "projects" | "keywords" | "teamMembers" | "aiCalls" | "monitors"
 ): Promise<FeatureLimitResult> {
   if (await isAdminUser(userId)) {
     return { allowed: true, current: 0, limit: -1, feature };
@@ -125,6 +125,11 @@ export async function checkFeatureLimit(
     case "aiCalls": {
       const { used, limit } = await getAiUsageToday(userId);
       return { allowed: limit === -1 || used < limit, current: used, limit, feature };
+    }
+    case "monitors": {
+      const current = await prisma.siteMonitor.count({ where: { userId } });
+      const limit = plan.maxProjects;
+      return { allowed: limit === -1 || current < limit, current, limit, feature };
     }
     default:
       return { allowed: true, current: 0, limit: -1, feature };
