@@ -124,6 +124,90 @@ export async function scrapeUrl(targetUrl: string): Promise<ScrapedData> {
   return parseHtml(html, url, response.status, loadTime);
 }
 
+export interface BacklinkCheckResult {
+  reachable: boolean;
+  linkFound: boolean;
+  dofollow: boolean | null;
+  anchorText: string | null;
+}
+
+/**
+ * Scans `html` (as served from `pageUrl`) for a link pointing at `targetHostname`,
+ * returning its anchor text and rel="nofollow" status. `targetHostname` should be
+ * lowercased and stripped of a leading "www.".
+ */
+export function findBacklinkInHtml(
+  html: string,
+  pageUrl: string,
+  targetHostname: string
+): { linkFound: boolean; dofollow: boolean | null; anchorText: string | null } {
+  const $ = cheerio.load(html);
+  let linkFound = false;
+  let dofollow: boolean | null = null;
+  let anchorText: string | null = null;
+
+  $("a[href]").each((_, el) => {
+    if (linkFound) return;
+    const href = $(el).attr("href") || "";
+    try {
+      const linkUrl = new URL(href, pageUrl);
+      if (linkUrl.hostname.replace(/^www\./, "").toLowerCase() === targetHostname) {
+        linkFound = true;
+        const rel = ($(el).attr("rel") || "").toLowerCase();
+        dofollow = !rel.includes("nofollow");
+        anchorText = $(el).text().trim().slice(0, 200) || null;
+      }
+    } catch {
+      // ignore invalid hrefs
+    }
+  });
+
+  return { linkFound, dofollow, anchorText };
+}
+
+/**
+ * Fetches `pageUrl` and checks whether it contains a link pointing at `targetUrl`'s
+ * hostname, returning the anchor text and rel="nofollow" status of the first match.
+ * Used by link monitoring to re-check previously acquired backlinks.
+ */
+export async function checkBacklinkPresence(pageUrl: string, targetUrl: string): Promise<BacklinkCheckResult> {
+  const notFound: BacklinkCheckResult = { reachable: false, linkFound: false, dofollow: null, anchorText: null };
+
+  const url = normalizeUrl(pageUrl);
+  if (!isValidUrl(url)) return notFound;
+
+  let targetHostname: string;
+  try {
+    targetHostname = new URL(normalizeUrl(targetUrl)).hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    return notFound;
+  }
+
+  try {
+    assertSafeScrapeTarget(url);
+
+    const response = await safeFetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; TechGeekStudioBot/1.0; +https://techgeekstudio.com)",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+    assertHtmlResponse(response);
+
+    const html = await response.text();
+    if (Buffer.byteLength(html, "utf-8") > MAX_HTML_BYTES) {
+      return { reachable: true, linkFound: false, dofollow: null, anchorText: null };
+    }
+
+    return { reachable: true, ...findBacklinkInHtml(html, url, targetHostname) };
+  } catch {
+    return notFound;
+  }
+}
+
 /** Parse raw HTML and extract SEO data */
 export function parseHtml(
   html: string,

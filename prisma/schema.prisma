@@ -307,6 +307,14 @@ model BacklinkProspect {
   linkAcquired    Boolean  @default(false)
   linkUrl         String?
 
+  // Link monitoring
+  anchorText      String?
+  linkDofollow    Boolean?
+  linkStatus      String?  // live | lost
+  lastLinkCheckAt DateTime?
+  lastLinkAlertAt DateTime?
+  linkChecks      LinkCheck[]
+
   campaignId      String?
   campaign        BacklinkCampaign? @relation(fields: [campaignId], references: [id])
 
@@ -319,6 +327,21 @@ model BacklinkProspect {
   @@index([campaignId, stage, createdAt(sort: Desc)])
   @@index([campaignId, linkAcquired])
   @@index([userId, domain])
+  @@index([linkAcquired, lastLinkCheckAt])
+}
+
+model LinkCheck {
+  id            String   @id @default(cuid())
+  prospectId    String
+  prospect      BacklinkProspect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  checkedAt     DateTime @default(now())
+  linkFound     Boolean
+  dofollow      Boolean?
+  anchorText    String?
+  statusChanged Boolean  @default(false)
+
+  @@index([prospectId, checkedAt(sort: Desc)])
 }
 
 model EmailQueue {
