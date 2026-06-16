@@ -11,21 +11,23 @@ export interface WorkflowConfig {
   projectName?: string;
 }
 
-function nextRunDate(frequency: string): Date {
-  const now = new Date();
+export function nextRunDate(frequency: string, from: Date = new Date()): Date {
+  const d = new Date(from);
   if (frequency === "daily") {
-    now.setDate(now.getDate() + 1);
-    now.setHours(8, 0, 0, 0);
+    d.setDate(d.getDate() + 1);
+    d.setHours(8, 0, 0, 0);
   } else if (frequency === "monthly") {
-    now.setMonth(now.getMonth() + 1);
-    now.setDate(1);
-    now.setHours(8, 0, 0, 0);
+    // Set the day to 1 BEFORE advancing the month so that month-lengths
+    // never cause an overflow (e.g. Jan 31 + 1 month must not skip February).
+    d.setDate(1);
+    d.setMonth(d.getMonth() + 1);
+    d.setHours(8, 0, 0, 0);
   } else {
     // weekly
-    now.setDate(now.getDate() + 7);
-    now.setHours(8, 0, 0, 0);
+    d.setDate(d.getDate() + 7);
+    d.setHours(8, 0, 0, 0);
   }
-  return now;
+  return d;
 }
 
 export async function listWorkflows(userId: string) {

@@ -11,10 +11,47 @@ const MAX_HTML_BYTES = 3_000_000;
 
 type Biz = { name: string; phone: string | null; city: string | null };
 
+export type NapMatch = { nameMatch: boolean; phoneMatch: boolean | null; addressMatch: boolean | null; status: string };
+
+/**
+ * Pure NAP-matching logic over already-extracted page text. Kept separate from
+ * the network fetch so it can be unit-tested in isolation.
+ *
+ * - name: case-insensitive substring match
+ * - phone: compares the last 7 significant digits to tolerate formatting and
+ *   country-code differences across directories
+ * - city: case-insensitive substring match (proxy for address presence)
+ */
+export function matchNapInText(bodyText: string, biz: Biz): NapMatch {
+  const lowerText = bodyText.toLowerCase();
+  const nameMatch = lowerText.includes(biz.name.toLowerCase());
+
+  let phoneMatch: boolean | null = null;
+  if (biz.phone) {
+    const phoneDigits = biz.phone.replace(/\D/g, "");
+    if (phoneDigits.length >= 7) {
+      const textDigits = bodyText.replace(/\D/g, "");
+      phoneMatch = textDigits.includes(phoneDigits.slice(-7));
+    }
+  }
+
+  let addressMatch: boolean | null = null;
+  if (biz.city) {
+    addressMatch = lowerText.includes(biz.city.toLowerCase());
+  }
+
+  return {
+    nameMatch,
+    phoneMatch,
+    addressMatch,
+    status: nameMatch ? "verified" : "inconsistent",
+  };
+}
+
 async function verifyNapAtUrl(
   citationUrl: string,
   biz: Biz
-): Promise<{ reachable: boolean; nameMatch: boolean; phoneMatch: boolean | null; addressMatch: boolean | null; status: string }> {
+): Promise<{ reachable: boolean } & NapMatch> {
   const unreachable = { reachable: false, nameMatch: false, phoneMatch: null, addressMatch: null, status: "unreachable" };
 
   try {
@@ -37,31 +74,8 @@ async function verifyNapAtUrl(
     const $ = cheerio.load(html);
     $("script, style").remove();
     const bodyText = $("body").text();
-    const lowerText = bodyText.toLowerCase();
 
-    const nameMatch = lowerText.includes(biz.name.toLowerCase());
-
-    let phoneMatch: boolean | null = null;
-    if (biz.phone) {
-      const phoneDigits = biz.phone.replace(/\D/g, "");
-      if (phoneDigits.length >= 7) {
-        const textDigits = bodyText.replace(/\D/g, "");
-        phoneMatch = textDigits.includes(phoneDigits.slice(-7));
-      }
-    }
-
-    let addressMatch: boolean | null = null;
-    if (biz.city) {
-      addressMatch = lowerText.includes(biz.city.toLowerCase());
-    }
-
-    return {
-      reachable: true,
-      nameMatch,
-      phoneMatch,
-      addressMatch,
-      status: nameMatch ? "verified" : "inconsistent",
-    };
+    return { reachable: true, ...matchNapInText(bodyText, biz) };
   } catch {
     return unreachable;
   }
