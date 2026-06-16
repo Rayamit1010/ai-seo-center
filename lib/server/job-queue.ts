@@ -168,7 +168,7 @@ const JOB_MAX_ATTEMPTS: Record<BackgroundJob["name"], number> = {
   "process-audit": 3,
   "send-report-email": 1,
   "run-report-schedule": 1,
-  "run-agent-cycle": 1,
+  "run-agent-cycle": 3,
   "rank-check": 2,
   "process-email-queue": 3,
 };
@@ -279,7 +279,7 @@ function getRetryDelayMs(jobName: BackgroundJob["name"], attempts: number) {
     "process-audit": [30_000, 2 * 60_000, 10 * 60_000],
     "send-report-email": [0],
     "run-report-schedule": [60_000, 5 * 60_000, 15 * 60_000],
-    "run-agent-cycle": [0],
+    "run-agent-cycle": [60_000, 5 * 60_000],
     "rank-check": [60_000, 5 * 60_000],
     "process-email-queue": [30_000, 2 * 60_000, 5 * 60_000],
   };
