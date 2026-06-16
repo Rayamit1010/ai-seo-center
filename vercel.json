@@ -4,7 +4,19 @@
   "crons": [
     {
       "path": "/api/cron/agent-cycle",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/agent-cycle",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/agent-cycle",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/agent-cycle",
+      "schedule": "0 18 * * *"
     },
     {
       "path": "/api/cron/rank-check",
