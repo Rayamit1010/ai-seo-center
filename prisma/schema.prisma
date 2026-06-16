@@ -41,6 +41,7 @@ model User {
   contentDrafts      ContentDraft[]
   notifications      Notification[]
   competitors        CompetitorTracking[]
+  competitorAnalyses CompetitorAnalysis[]
   ownedTeams         Team[]           @relation("TeamOwner")
   teamMemberships    TeamMember[]
   passwordResetTokens     PasswordResetToken[]
@@ -807,8 +808,33 @@ model CompetitorTracking {
   lastChecked  DateTime?
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  analyses     CompetitorAnalysis[]
+
   @@index([userId])
   @@unique([userId, domain])
+}
+
+// ═══════════════════════════════════════════════════════
+// Growth Mode: Competitor Analysis
+// ═══════════════════════════════════════════════════════
+
+model CompetitorAnalysis {
+  id                   String             @id @default(cuid())
+  userId               String
+  competitorId         String
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  competitor           CompetitorTracking @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  summary              String
+  strengths            String             @default("[]") // JSON: string[]
+  weaknesses           String             @default("[]") // JSON: string[]
+  contentGaps          String             @default("[]") // JSON: {topic, rationale}[]
+  keywordOpportunities String             @default("[]") // JSON: {keyword, intent, opportunity}[]
+  backlinkGaps         String             @default("[]") // JSON: string[]
+  quickWins            String             @default("[]") // JSON: string[]
+  createdAt            DateTime           @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([competitorId])
 }
 
 // ═══════════════════════════════════════════════════════
