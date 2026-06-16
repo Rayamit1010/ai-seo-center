@@ -4,6 +4,7 @@ import { ok, fail } from "@/lib/server/response";
 import { prisma } from "@/lib/db";
 import { callClaudeJSON } from "@/lib/anthropic";
 import { buildCompetitorAnalysisPrompt } from "@/lib/prompts/growth";
+import { checkRateLimit } from "@/lib/server/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -26,6 +27,10 @@ export async function POST(
     assertTrustedOrigin(req);
     const userId = await getRequiredUserId();
     const { id } = await params;
+
+    if (!(await checkRateLimit(`competitor-analyze:${userId}`, 10, 3_600_000))) {
+      return fail("Rate limit exceeded. Try again later.", 429);
+    }
 
     const competitor = await prisma.competitorTracking.findFirst({ where: { id, userId } });
     if (!competitor) return fail("Not found", 404);

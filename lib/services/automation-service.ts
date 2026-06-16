@@ -3,6 +3,10 @@ import { getResendClient } from "@/lib/resend";
 
 const LEASE_MS = 10 * 60 * 1000; // 10-minute lease to prevent double-processing
 
+function esc(v: string) {
+  return v.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+}
+
 export type WorkflowType = "weekly-site-audit" | "rank-summary" | "backlink-health" | "citation-health";
 
 export interface WorkflowConfig {
@@ -165,13 +169,13 @@ async function runRankSummary(userId: string, to: string, name: string): Promise
       const pos = h?.position ?? null;
       const change = h?.change ?? null;
       const arrow = change === null ? "" : change > 0 ? `↑${change}` : change < 0 ? `↓${Math.abs(change)}` : "→";
-      return `<tr><td style="padding:4px 8px">${k.keyword}</td><td style="padding:4px 8px;text-align:center">${pos ?? "–"}</td><td style="padding:4px 8px;text-align:center;color:${change && change > 0 ? "green" : "red"}">${arrow}</td></tr>`;
+      return `<tr><td style="padding:4px 8px">${esc(k.keyword)}</td><td style="padding:4px 8px;text-align:center">${pos ?? "–"}</td><td style="padding:4px 8px;text-align:center;color:${change && change > 0 ? "green" : "red"}">${arrow}</td></tr>`;
     })
     .join("");
 
   await sendEmail(to, `Rank Tracking Summary — ${new Date().toLocaleDateString()}`, `
 <h2>Rank Tracking Summary</h2>
-<p>Hi ${name},</p>
+<p>Hi ${esc(name)},</p>
 <p>Here's your keyword ranking update:</p>
 <ul>
   <li><strong>${improved}</strong> keywords improved</li>
@@ -225,12 +229,15 @@ async function runCitationHealth(userId: string, to: string, name: string): Prom
   const total = business.citations.length;
   const verified = business.citations.filter((c) => c.status === "verified").length;
   const inconsistent = business.citations.filter((c) => c.status === "inconsistent").length;
-  const inconsistentNames = business.citations.filter((c) => c.status === "inconsistent").map((c) => c.directoryName).join(", ");
+  const inconsistentNames = business.citations
+    .filter((c) => c.status === "inconsistent")
+    .map((c) => esc(c.directoryName))
+    .join(", ");
 
   await sendEmail(to, `Citation Health Report — ${new Date().toLocaleDateString()}`, `
 <h2>Citation Monitor Report</h2>
-<p>Hi ${name},</p>
-<p>Citation consistency report for <strong>${business.name}</strong>:</p>
+<p>Hi ${esc(name)},</p>
+<p>Citation consistency report for <strong>${esc(business.name)}</strong>:</p>
 <ul>
   <li><strong>${total}</strong> directories tracked</li>
   <li><strong style="color:green">${verified}</strong> verified (NAP consistent)</li>
@@ -256,10 +263,10 @@ async function runSiteAuditSummary(userId: string, to: string, name: string, tar
 
   await sendEmail(to, `Site Audit Summary — ${audit.url}`, `
 <h2>Site Audit Summary</h2>
-<p>Hi ${name},</p>
-<p>Latest audit data for <strong>${audit.url}</strong> (${new Date(audit.createdAt).toLocaleDateString()}):</p>
+<p>Hi ${esc(name)},</p>
+<p>Latest audit data for <strong>${esc(audit.url)}</strong> (${new Date(audit.createdAt).toLocaleDateString()}):</p>
 <ul>
-  ${Object.entries(scores).map(([k, v]) => `<li><strong>${k}:</strong> ${v}/100</li>`).join("")}
+  ${Object.entries(scores).map(([k, v]) => `<li><strong>${esc(k)}:</strong> ${Number(v)}/100</li>`).join("")}
 </ul>
 <p>Log in to view the full audit report and recommendations.</p>
 `);

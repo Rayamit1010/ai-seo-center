@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { callClaudeJSON } from "@/lib/anthropic";
 import { assertTrustedOrigin, isInvalidOriginError } from "@/lib/server/csrf";
+import { checkRateLimit } from "@/lib/server/rate-limit";
 import {
   buildPressReleasePrompt,
   buildPitchEmailPrompt,
@@ -15,6 +16,10 @@ export async function POST(req: Request) {
     const session = await getServerSession(authOptions);
     const userId = session?.user?.id;
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    if (!(await checkRateLimit(`digital-pr:${userId}`, 10, 3_600_000))) {
+      return NextResponse.json({ error: "Rate limit exceeded. Try again later." }, { status: 429 });
+    }
 
     const body = (await req.json()) as {
       action: string;

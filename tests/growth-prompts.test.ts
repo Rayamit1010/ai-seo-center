@@ -7,7 +7,7 @@ test("competitor analysis prompt includes competitor domain", () => {
     competitorDomain: "rival.com",
     trackedKeywords: [],
   });
-  assert.ok(user.includes("rival.com"), "user prompt should mention the competitor domain");
+  assert.match(user, /rival\.com/, "user prompt should mention the competitor domain");
 });
 
 test("competitor analysis prompt includes user website when provided", () => {
@@ -16,7 +16,7 @@ test("competitor analysis prompt includes user website when provided", () => {
     userWebsite: "mysite.com",
     trackedKeywords: [],
   });
-  assert.ok(user.includes("mysite.com"));
+  assert.match(user, /mysite\.com/);
 });
 
 test("competitor analysis prompt lists tracked keywords (up to 30)", () => {
@@ -26,8 +26,8 @@ test("competitor analysis prompt lists tracked keywords (up to 30)", () => {
     trackedKeywords: keywords,
   });
   // First 30 should appear, 31st should not
-  assert.ok(user.includes("keyword-29"));
-  assert.ok(!user.includes("keyword-30"), "should not include keyword beyond index 29");
+  assert.match(user, /keyword-29/);
+  assert.doesNotMatch(user, /keyword-30/, "should not include keyword beyond index 29");
 });
 
 test("competitor analysis prompt falls back gracefully with no keywords", () => {

@@ -217,6 +217,10 @@ export async function runCitationChecks(limit = 50) {
   return { checked, alerted: degradedByUser.size };
 }
 
+function esc(v: string) {
+  return v.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+}
+
 async function sendCitationAlert(userId: string, changed: Array<{ directoryName: string }>) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -226,7 +230,7 @@ async function sendCitationAlert(userId: string, changed: Array<{ directoryName:
 
   try {
     const resend = getResendClient();
-    const rows = changed.map((c) => `<li><strong>${c.directoryName}</strong></li>`).join("");
+    const rows = changed.map((c) => `<li><strong>${esc(c.directoryName)}</strong></li>`).join("");
     const count = changed.length;
 
     await resend.emails.send({

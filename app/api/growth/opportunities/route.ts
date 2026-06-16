@@ -4,6 +4,7 @@ import { ok, fail } from "@/lib/server/response";
 import { prisma } from "@/lib/db";
 import { callClaudeJSON } from "@/lib/anthropic";
 import { buildGrowthOpportunitiesPrompt } from "@/lib/prompts/growth";
+import { checkRateLimit } from "@/lib/server/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -22,6 +23,10 @@ export async function POST(req: Request) {
   try {
     assertTrustedOrigin(req);
     const userId = await getRequiredUserId();
+
+    if (!(await checkRateLimit(`growth-plan:${userId}`, 5, 3_600_000))) {
+      return fail("Rate limit exceeded. Try again later.", 429);
+    }
 
     const [user, competitors, keywords, backlinkCount] = await Promise.all([
       prisma.user.findUnique({ where: { id: userId }, select: { website: true, company: true } }),
