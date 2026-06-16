@@ -49,6 +49,8 @@ model User {
   seoTasks           SeoTask[]
   citationBusiness   CitationBusiness?
   citations          Citation[]
+  prCampaigns        PrCampaign[]
+  prCoverages        PrCoverage[]
 }
 
 model Audit {
@@ -926,4 +928,45 @@ model Citation {
 
   @@index([userId, lastCheckedAt])
   @@index([businessId])
+}
+
+// ═══════════════════════════════════════════════════════
+// Digital PR Engine Models
+// ═══════════════════════════════════════════════════════
+
+model PrCampaign {
+  id                 String       @id @default(cuid())
+  userId             String
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title              String
+  topic              String
+  angle              String?
+  niche              String?
+  keyMessages        String?      // JSON: string[]
+  status             String       @default("draft") // draft | active | completed
+  pressRelease       String?      // AI-generated markdown
+  pitchTemplate      String?      // AI-generated pitch email
+  targetPublications String?      // JSON: Array<{ name, url, beat, pitchTips, tier }>
+  coverages          PrCoverage[]
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model PrCoverage {
+  id              String     @id @default(cuid())
+  userId          String
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaignId      String
+  campaign        PrCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  publicationName String
+  coverageUrl     String?
+  mentionType     String?    // full_story | mention | backlink
+  publishedAt     DateTime?
+  dofollow        Boolean?
+  createdAt       DateTime   @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([campaignId])
 }
