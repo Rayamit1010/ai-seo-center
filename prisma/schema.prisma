@@ -51,6 +51,7 @@ model User {
   citations          Citation[]
   prCampaigns        PrCampaign[]
   prCoverages        PrCoverage[]
+  automationWorkflows AutomationWorkflow[]
 }
 
 model Audit {
@@ -969,4 +970,29 @@ model PrCoverage {
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([campaignId])
+}
+
+// ═══════════════════════════════════════════════════════
+// Automation Workflows
+// ═══════════════════════════════════════════════════════
+
+model AutomationWorkflow {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  type           String    // weekly-site-audit | rank-summary | backlink-health | citation-health
+  configJson     String    @default("{}") // JSON: { targetUrl?, recipientEmail, ... }
+  enabled        Boolean   @default(true)
+  frequency      String    @default("weekly") // daily | weekly | monthly
+  nextRunAt      DateTime
+  lastRunAt      DateTime?
+  lastRunStatus  String?   // success | error
+  lastRunSummary String?
+  leaseUntil     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([enabled, nextRunAt, leaseUntil])
 }
