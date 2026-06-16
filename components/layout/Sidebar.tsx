@@ -30,6 +30,9 @@ import {
   Users,
   Crosshair,
   Radar,
+  MapPin,
+  Newspaper,
+  Workflow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +42,9 @@ const navItems = [
   { href: "/keywords", icon: Tags, label: "Keywords" },
   { href: "/rank-tracker", icon: TrendingUp, label: "Rank Tracker" },
   { href: "/backlinks", icon: LinkIcon, label: "Backlinks" },
+  { href: "/citations", icon: MapPin, label: "Citations" },
+  { href: "/digital-pr", icon: Newspaper, label: "Digital PR" },
+  { href: "/automations", icon: Workflow, label: "Automations" },
   { href: "/technical", icon: Settings, label: "Technical" },
   { href: "/monitoring", icon: Radar, label: "Monitoring" },
   { href: "/content", icon: FileText, label: "Content" },

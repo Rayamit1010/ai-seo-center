@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LinkMonitoringPanel } from "@/components/backlinks/LinkMonitoringPanel";
 import { toast } from "sonner";
 
 export default function BacklinksPage() {
@@ -185,31 +186,7 @@ export default function BacklinksPage() {
         </TabsContent>
 
         <TabsContent value="monitor">
-          <Card>
-            <CardContent className="p-6">
-              <p className="text-sm text-text-secondary mb-4">
-                Use this Google Sheets template to track your backlinks:
-              </p>
-              <div className="rounded-lg bg-background p-4 font-mono text-xs text-text-secondary overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border">
-                      {["URL", "Domain", "DR", "Anchor Text", "Placement Date", "Status", "Last Checked"].map(h => (
-                        <th key={h} className="pb-2 pr-4 text-left text-text-muted">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      {["https://...", "example.com", "45", "your keyword", "2024-01-15", "Live", "2024-02-01"].map((v, i) => (
-                        <td key={i} className="py-2 pr-4">{v}</td>
-                      ))}
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+          <LinkMonitoringPanel />
         </TabsContent>
       </Tabs>
     </div>

@@ -10,7 +10,7 @@
     "build": "prisma generate && prisma db push --accept-data-loss && prisma db seed && next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --import tsx --test tests/**/*.test.ts",
+    "test": "node --import tsx --test tests/*.test.ts tests/*/*.test.ts",
     "test:browser": "playwright test",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",

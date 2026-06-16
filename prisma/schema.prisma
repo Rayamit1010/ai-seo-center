@@ -41,12 +41,18 @@ model User {
   contentDrafts      ContentDraft[]
   notifications      Notification[]
   competitors        CompetitorTracking[]
+  competitorAnalyses CompetitorAnalysis[]
   ownedTeams         Team[]           @relation("TeamOwner")
   teamMemberships    TeamMember[]
   passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
   siteMonitors       SiteMonitor[]
   seoTasks           SeoTask[]
+  citationBusiness   CitationBusiness?
+  citations          Citation[]
+  prCampaigns        PrCampaign[]
+  prCoverages        PrCoverage[]
+  automationWorkflows AutomationWorkflow[]
 }
 
 model Audit {
@@ -307,6 +313,14 @@ model BacklinkProspect {
   linkAcquired    Boolean  @default(false)
   linkUrl         String?
 
+  // Link monitoring
+  anchorText      String?
+  linkDofollow    Boolean?
+  linkStatus      String?  // live | lost
+  lastLinkCheckAt DateTime?
+  lastLinkAlertAt DateTime?
+  linkChecks      LinkCheck[]
+
   campaignId      String?
   campaign        BacklinkCampaign? @relation(fields: [campaignId], references: [id])
 
@@ -319,6 +333,21 @@ model BacklinkProspect {
   @@index([campaignId, stage, createdAt(sort: Desc)])
   @@index([campaignId, linkAcquired])
   @@index([userId, domain])
+  @@index([linkAcquired, lastLinkCheckAt])
+}
+
+model LinkCheck {
+  id            String   @id @default(cuid())
+  prospectId    String
+  prospect      BacklinkProspect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  checkedAt     DateTime @default(now())
+  linkFound     Boolean
+  dofollow      Boolean?
+  anchorText    String?
+  statusChanged Boolean  @default(false)
+
+  @@index([prospectId, checkedAt(sort: Desc)])
 }
 
 model EmailQueue {
@@ -779,8 +808,33 @@ model CompetitorTracking {
   lastChecked  DateTime?
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  analyses     CompetitorAnalysis[]
+
   @@index([userId])
   @@unique([userId, domain])
+}
+
+// ═══════════════════════════════════════════════════════
+// Growth Mode: Competitor Analysis
+// ═══════════════════════════════════════════════════════
+
+model CompetitorAnalysis {
+  id                   String             @id @default(cuid())
+  userId               String
+  competitorId         String
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  competitor           CompetitorTracking @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  summary              String
+  strengths            String             @default("[]") // JSON: string[]
+  weaknesses           String             @default("[]") // JSON: string[]
+  contentGaps          String             @default("[]") // JSON: {topic, rationale}[]
+  keywordOpportunities String             @default("[]") // JSON: {keyword, intent, opportunity}[]
+  backlinkGaps         String             @default("[]") // JSON: string[]
+  quickWins            String             @default("[]") // JSON: string[]
+  createdAt            DateTime           @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([competitorId])
 }
 
 // ═══════════════════════════════════════════════════════
@@ -858,4 +912,113 @@ model SeoTask {
   @@unique([monitorId, action])
   @@index([userId, status, severity])
   @@index([monitorId, status])
+}
+
+// ═══════════════════════════════════════════════════════
+// Citation Manager Models
+// ═══════════════════════════════════════════════════════
+
+model CitationBusiness {
+  id          String     @id @default(cuid())
+  userId      String     @unique
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  address     String?
+  city        String?
+  state       String?
+  country     String?
+  phone       String?
+  website     String?
+  niche       String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  citations   Citation[]
+}
+
+model Citation {
+  id            String           @id @default(cuid())
+  userId        String
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessId    String
+  business      CitationBusiness @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  directoryName String
+  directoryUrl  String
+  citationUrl   String?
+  status        String?          // verified | inconsistent | unreachable
+  nameMatch     Boolean?
+  addressMatch  Boolean?
+  phoneMatch    Boolean?
+  lastCheckedAt DateTime?
+  lastAlertAt   DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([userId, lastCheckedAt])
+  @@index([businessId])
+}
+
+// ═══════════════════════════════════════════════════════
+// Digital PR Engine Models
+// ═══════════════════════════════════════════════════════
+
+model PrCampaign {
+  id                 String       @id @default(cuid())
+  userId             String
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title              String
+  topic              String
+  angle              String?
+  niche              String?
+  keyMessages        String?      // JSON: string[]
+  status             String       @default("draft") // draft | active | completed
+  pressRelease       String?      // AI-generated markdown
+  pitchTemplate      String?      // AI-generated pitch email
+  targetPublications String?      // JSON: Array<{ name, url, beat, pitchTips, tier }>
+  coverages          PrCoverage[]
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model PrCoverage {
+  id              String     @id @default(cuid())
+  userId          String
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaignId      String
+  campaign        PrCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  publicationName String
+  coverageUrl     String?
+  mentionType     String?    // full_story | mention | backlink
+  publishedAt     DateTime?
+  dofollow        Boolean?
+  createdAt       DateTime   @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([campaignId])
+}
+
+// ═══════════════════════════════════════════════════════
+// Automation Workflows
+// ═══════════════════════════════════════════════════════
+
+model AutomationWorkflow {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  type           String    // weekly-site-audit | rank-summary | backlink-health | citation-health
+  configJson     String    @default("{}") // JSON: { targetUrl?, recipientEmail, ... }
+  enabled        Boolean   @default(true)
+  frequency      String    @default("weekly") // daily | weekly | monthly
+  nextRunAt      DateTime
+  lastRunAt      DateTime?
+  lastRunStatus  String?   // success | error
+  lastRunSummary String?
+  leaseUntil     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([enabled, nextRunAt, leaseUntil])
 }
