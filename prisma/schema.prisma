@@ -47,6 +47,8 @@ model User {
   emailVerificationTokens EmailVerificationToken[]
   siteMonitors       SiteMonitor[]
   seoTasks           SeoTask[]
+  citationBusiness   CitationBusiness?
+  citations          Citation[]
 }
 
 model Audit {
@@ -881,4 +883,47 @@ model SeoTask {
   @@unique([monitorId, action])
   @@index([userId, status, severity])
   @@index([monitorId, status])
+}
+
+// ═══════════════════════════════════════════════════════
+// Citation Manager Models
+// ═══════════════════════════════════════════════════════
+
+model CitationBusiness {
+  id          String     @id @default(cuid())
+  userId      String     @unique
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  address     String?
+  city        String?
+  state       String?
+  country     String?
+  phone       String?
+  website     String?
+  niche       String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  citations   Citation[]
+}
+
+model Citation {
+  id            String           @id @default(cuid())
+  userId        String
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessId    String
+  business      CitationBusiness @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  directoryName String
+  directoryUrl  String
+  citationUrl   String?
+  status        String?          // verified | inconsistent | unreachable
+  nameMatch     Boolean?
+  addressMatch  Boolean?
+  phoneMatch    Boolean?
+  lastCheckedAt DateTime?
+  lastAlertAt   DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([userId, lastCheckedAt])
+  @@index([businessId])
 }

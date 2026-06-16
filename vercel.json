@@ -25,6 +25,10 @@
     {
       "path": "/api/cron/link-monitor",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/citation-monitor",
+      "schedule": "0 7 * * *"
     }
   ]
 }

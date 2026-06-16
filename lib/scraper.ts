@@ -52,7 +52,7 @@ const MAX_REDIRECTS = 5;
  * against the SSRF blocklist. Using redirect:"follow" would silently follow a
  * redirect from a public host to an internal IP.
  */
-async function safeFetch(
+export async function safeFetch(
   url: string,
   options: Omit<RequestInit, "redirect">
 ): Promise<Response> {
@@ -76,7 +76,7 @@ async function safeFetch(
   throw new Error("Too many redirects");
 }
 
-function assertHtmlResponse(response: Response) {
+export function assertHtmlResponse(response: Response) {
   const contentType = response.headers.get("content-type")?.toLowerCase() || "";
   if (
     contentType &&
