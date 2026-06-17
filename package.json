@@ -17,6 +17,7 @@
     "db:sync:postgres-schema": "node scripts/sync-postgres-schema.mjs",
     "db:push:postgres": "pnpm db:sync:postgres-schema && prisma db push --schema prisma/schema.postgres.prisma",
     "db:generate:postgres": "pnpm db:sync:postgres-schema && prisma generate --schema prisma/schema.postgres.prisma",
+    "db:baseline-prod": "bash scripts/baseline-prod-migrations.sh",
     "jobs:drain": "tsx scripts/drain-jobs.ts",
     "jobs:daemon": "tsx scripts/run-job-worker.ts",
     "review:export": "tsx scripts/generate-engineering-review.ts"
