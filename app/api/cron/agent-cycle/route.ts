@@ -1,4 +1,7 @@
-import { claimDueAgentCycles } from "@/lib/services/agent-automation-service";
+import {
+  claimDueAgentCycles,
+  summarizeAgentEligibility,
+} from "@/lib/services/agent-automation-service";
 import { runAgentCycle } from "@/lib/agent";
 import { logRouteTiming } from "@/lib/server/observability";
 import { fail, ok } from "@/lib/server/response";
@@ -38,10 +41,16 @@ export async function GET(request: Request) {
       }
     }
 
+    // When nothing ran, record *why* so an idle run is distinguishable from a
+    // fault: no agents enabled, enabled but no active campaign, or all busy/not
+    // yet due. Only queried on the zero path to keep the hot path cheap.
+    const eligibility =
+      cycles.length === 0 ? await summarizeAgentEligibility(now) : undefined;
+
     logRouteTiming({
       name: "cron-agent-cycle",
       startedAt,
-      meta: { cyclesRun: cycles.length },
+      meta: { cyclesRun: cycles.length, ...(eligibility ? { eligibility } : {}) },
       thresholdMs: 0,
     });
 
@@ -49,6 +58,7 @@ export async function GET(request: Request) {
       ranAt: now.toISOString(),
       cyclesRun: cycles.length,
       results,
+      ...(eligibility ? { eligibility } : {}),
     });
   } catch (error) {
     logRouteTiming({ name: "cron-agent-cycle", startedAt, error });

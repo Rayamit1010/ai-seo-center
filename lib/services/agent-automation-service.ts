@@ -107,6 +107,35 @@ export async function listDueAgentCycles(now = new Date()) {
   return claimDueAgentCycles(now);
 }
 
+/**
+ * Explains why a cron run may have claimed zero cycles, so an idle
+ * `cyclesRun: 0` can be told apart from a real fault. Cheap enough to run on
+ * the cron's zero-result path (three counts).
+ *
+ * - enabledConfigs: agents toggled on at all
+ * - enabledWithActiveCampaign: the eligible pool (on + has an active campaign);
+ *   0 here with enabledConfigs > 0 means users enabled the agent but have no
+ *   active campaign for it to work on
+ * - leasedNow: eligible agents currently mid-cycle (lease held), i.e. busy
+ *   rather than idle
+ */
+export async function summarizeAgentEligibility(now = new Date()) {
+  const [enabledConfigs, enabledWithActiveCampaign, leasedNow] = await Promise.all([
+    prisma.agentConfig.count({ where: { isEnabled: true } }),
+    prisma.agentConfig.count({
+      where: {
+        isEnabled: true,
+        user: { backlinkCampaigns: { some: { status: "active" } } },
+      },
+    }),
+    prisma.agentConfig.count({
+      where: { isEnabled: true, cycleLeaseUntil: { gt: now } },
+    }),
+  ]);
+
+  return { enabledConfigs, enabledWithActiveCampaign, leasedNow };
+}
+
 export async function completeAgentCycleLease(userId: string, completedAt = new Date()) {
   await prisma.agentConfig.updateMany({
     where: { userId },
