@@ -63,3 +63,34 @@ This runs `scripts/baseline-prod-migrations.sh`, which:
 Only after that succeeds, switch `package.json`'s build script from
 `prisma db push --accept-data-loss` to `prisma migrate deploy`, deploy, confirm
 a clean build, and close issue #4.
+
+### Procedure validated (2026-07-06)
+
+The full baseline flow was rehearsed against a throwaway Postgres 16 provisioned
+to the exact production state (schema created via `db push`, no `_prisma_migrations`
+history). Confirmed, in order:
+
+1. `prisma migrate deploy` against that DB fails with **P3005** — reproduces the
+   production error exactly.
+2. `prisma migrate diff --from-url <db> --to-schema-datamodel prisma/schema.prisma`
+   is **empty** — the `db push` schema matches `prisma/schema.prisma` with no drift.
+3. `prisma migrate resolve --applied <name>` for all 8 migrations succeeds.
+4. `prisma migrate status` then reports **"Database schema is up to date!"**
+5. `prisma migrate deploy` afterwards is a clean **no-op (exit 0)**.
+
+So `npm run db:baseline-prod` is a known-good, de-risked operation — it only needs
+the real production `DATABASE_URL` (retrievable from Vercel → Project Settings →
+Environment Variables → Production → `DATABASE_URL`, "Reveal"; or from the database
+provider's dashboard) plus a fresh backup taken first.
+
+### Caveat: the migration history is not reproducible from an empty database
+
+The 8 migrations are **incremental** (the first one is `ALTER TABLE "User" …`, not
+`CREATE TABLE`). There is no `0_init` migration that creates the base tables, so
+`prisma migrate deploy` against a *truly empty* database fails with
+`relation "User" does not exist` (42P01). This is fine for the long-lived
+production DB (baselining marks the incrementals applied on top of the existing
+`db push` schema), but it means **fresh/preview databases must be provisioned with
+`db push`, not `migrate deploy`**, until someone squashes the current schema into a
+proper initial migration. A committed `prisma/migrations/migration_lock.toml`
+(`provider = "postgresql"`) records the datasource provider for the migrate CLI.
